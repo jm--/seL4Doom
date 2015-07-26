@@ -1,0 +1,14 @@
+#
+# Copyright (c) 2015, Josef Mihalits
+#
+# This software may be distributed and modified according to the terms of
+# the GNU General Public License version 2. Note that NO WARRANTY is provided.
+# See "LICENSE_GPLv2.txt" for details.
+#
+
+menuconfig APP_DOOM
+    bool "seL4Doom - DOOM for seL4"
+    default y
+    depends on LIB_SEL4 && LIB_CPIO && (LIB_MUSL_C || LIB_SEL4_C) && LIB_SEL4_PLAT_SUPPORT && LIB_SEL4_VKA && LIB_SEL4_UTILS && LIB_UTILS
+    help
+        seL4 port of DOOM
