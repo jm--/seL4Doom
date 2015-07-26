@@ -32,8 +32,9 @@ rcsid[] = "$Id: i_main.c,v 1.4 1997/02/03 22:45:10 b1 Exp $";
 #include "m_argv.h"
 #include "d_main.h"
 
+// called from seL4 root task
 int
-main
+main_ORIGINAL
 ( int		argc,
   char**	argv ) 
 { 
