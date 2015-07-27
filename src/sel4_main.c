@@ -71,6 +71,41 @@ static fb_t fb = NULL;
 static seL4_VBEModeInfoBlock* mib;
 
 
+//////////////////////////////////////////////////////
+/*  Types and prototype for keyboard access here are from
+ *  keyboard_chardev.c and keyboard_ps2.h in the platsupport library.
+ *  I guess one is not supposed to use them directly...
+ */
+
+#define KEYBOARD_PS2_STATE_NORMAL 0x1
+//#define KEYBOARD_PS2_STATE_IGNORE 0x2
+#define KEYBOARD_PS2_STATE_EXTENDED_MODE 0x4
+#define KEYBOARD_PS2_STATE_RELEASE_KEY 0x8
+//#define KEYBOARD_PS2_EVENTCODE_RELEASE 0xF0
+//#define KEYBOARD_PS2_EVENTCODE_EXTENDED 0xE0
+//#define KEYBOARD_PS2_EVENTCODE_EXTENDED_PAUSE 0xE1
+
+typedef struct keyboard_key_event {
+    int16_t vkey;
+    bool pressed;
+} keyboard_key_event_t;
+
+struct keyboard_state {
+    ps_io_ops_t ops;
+    int state;
+    int num_ignore;
+    void (*handle_event_callback)(keyboard_key_event_t ev, void *cookie);
+};
+
+/* keyboard state */
+static struct keyboard_state kb_state;
+
+/* prototype of platsupport internal function */
+keyboard_key_event_t keyboard_poll_ps2_keyevent(struct keyboard_state *state);
+
+//////////////////////////////////////////////////////
+
+
 // ======================================================================
 /*
  * Initialize all main data structures.
@@ -139,6 +174,58 @@ init_timers()
     // timer_get_time(tsc_timer) to get current time (in ns)
     tsc_timer = sel4platsupport_get_tsc_timer(timer);
     assert(tsc_timer != NULL);
+}
+
+
+static void
+init_keyboard() {
+    ps_chardevice_t *ret;
+    ret = ps_cdev_init(PC99_KEYBOARD_PS2, &io_ops, &inputdev);
+    assert(ret != NULL);
+
+    //initialize keyboard state;
+    //mirroring platsupport's internal keyboard state; yikes
+    kb_state.state = KEYBOARD_PS2_STATE_NORMAL;
+    kb_state.ops = io_ops;   // keyboard.dev.ioops
+    kb_state.num_ignore = 0;
+    kb_state.handle_event_callback = NULL;
+}
+
+
+int
+sel4doom_get_getchar() {
+    return ps_cdev_getchar(&inputdev);
+}
+
+
+/* At the time of writing (July 2015), there seems to be a bug in
+ * keyboard_state_push_ps2_keyevent(), which results in extmode not working.
+ * Parameter ps2_keyevent should be uint16_t and not int16_t, I think.
+ * (I'll review again and file an issue on github if necessary.)
+ *
+ * I still have to read-up on keyboard scan codes and related things...
+ * Hacked this together to make it work for now.
+ */
+int
+sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode) {
+    keyboard_key_event_t ev = keyboard_poll_ps2_keyevent(&kb_state);
+    *extmode = kb_state.state & KEYBOARD_PS2_STATE_EXTENDED_MODE;
+
+    if (*extmode) {
+        assert(ev.vkey == -1 && ev.pressed  == 0);
+        ev= keyboard_poll_ps2_keyevent(&kb_state);
+    }
+
+    if (*extmode &&  (kb_state.state & KEYBOARD_PS2_STATE_RELEASE_KEY)) {
+        ev= keyboard_poll_ps2_keyevent(&kb_state);
+    }
+
+    if (ev.vkey != -1) {
+        printf("key %s: extmode=%d vkey=%d\n",
+                ev.pressed ? "DOWN":"UP  ", (*extmode > 0), ev.vkey);
+    }
+    *vkey = ev.vkey;
+    return ev.pressed;
 }
 
 
@@ -272,8 +359,8 @@ gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
 static void
 *main_continued()
 {
-//    printf("initializing keyboard\n");
-//    init_cdev(PC99_KEYBOARD_PS2, &inputdev);
+    printf("initializing keyboard\n");
+    init_keyboard();
 
     gfx_print_IA32BootInfo(bootinfo2);
     gfx_init_IA32BootInfo(bootinfo2);

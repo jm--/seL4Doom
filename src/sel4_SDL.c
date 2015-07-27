@@ -12,6 +12,8 @@
 
 Uint32 sel4doom_get_current_time();
 void * sel4doom_get_framebuffer_vaddr();
+int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
+
 
 static SDL_Surface sdl_surface;
 static SDL_PixelFormat sdl_format;
@@ -73,7 +75,7 @@ SDL_GetTicks(void) {
 
 DECLSPEC void SDLCALL 
 SDL_Delay(Uint32 ms) {
-    //printf("seL4: SDL_Delay(): ms=%d\n", ms);
+    // printf("seL4: SDL_Delay(): ms=%d\n", ms);
 }
 
 
@@ -86,7 +88,93 @@ SDL_GetMouseState(int *x, int *y) {
 DECLSPEC int SDLCALL 
 SDL_PollEvent(SDL_Event *event) {
     //printf("seL4: SDL_PollEvent()\n");
-    return 0;
+
+    int16_t vkey;
+    int16_t extmode;
+    int pressed = sel4doom_get_kb_state(&vkey, &extmode);
+    if (vkey == -1) {
+        //no pending events
+        return 0;
+    }
+
+    event->type = pressed ? SDL_KEYDOWN : SDL_KEYUP;
+
+    if (extmode) {
+        //cursor keys
+        switch(vkey) {
+        case 0x25:
+            event->key.keysym.sym = SDLK_LEFT;
+            break;
+        case 0x26:
+            event->key.keysym.sym = SDLK_UP;
+            break;
+        case 0x27:
+            event->key.keysym.sym = SDLK_RIGHT;
+            break;
+        case 0x28:
+            event->key.keysym.sym = SDLK_DOWN;
+            break;
+        }
+        return 1;
+    }
+
+    switch(vkey) {
+    case 27:
+        event->key.keysym.sym = SDLK_ESCAPE;
+        break;
+    case 13: //enter key
+        event->key.keysym.sym = SDLK_RETURN;
+        break;
+    case 74: // 'j'
+        event->key.keysym.sym = SDLK_LEFT;
+        break;
+    case 73: // 'i'
+        event->key.keysym.sym = SDLK_UP;
+        break;
+    case 76: // 'l'
+        event->key.keysym.sym = SDLK_RIGHT;
+        break;
+    case 75: // 'k'
+        event->key.keysym.sym = SDLK_DOWN;
+        break;
+    case 32: // space
+        event->key.keysym.sym = SDLK_SPACE;
+        break;
+    case 78: // 'n'
+        event->key.keysym.sym = SDLK_n;
+        break;
+    case 89: // 'y'
+        event->key.keysym.sym = SDLK_y;
+        break;
+    case 160:
+        event->key.keysym.sym = SDLK_LSHIFT;
+        break;
+    case 161:
+        event->key.keysym.sym = SDLK_RSHIFT;
+        break;
+    case 162:
+        event->key.keysym.sym = SDLK_LCTRL;
+        break;
+//    case 0:
+//        event->key.keysym.sym = SDLK_RCTRL;
+//        break;
+    case 18:
+        event->key.keysym.sym = SDLK_LALT;
+        break;
+//    case 0:
+//        event->key.keysym.sym = SDLK_RALT;
+//        break;
+    case 189:
+        event->key.keysym.sym = SDLK_EQUALS;
+        break;
+    case 187:
+        event->key.keysym.sym = SDLK_MINUS;
+        break;
+//    default:
+//        event->key.keysym.sym = vkey;
+//        break;
+    }
+    return 1;
 }
 
 
@@ -103,7 +191,11 @@ SDL_UnlockSurface(SDL_Surface *surface) {
 
 DECLSPEC void SDLCALL 
 SDL_UpdateRect (SDL_Surface *screen, Sint32 x, Sint32 y, Uint32 w, Uint32 h) {
-    printf("seL4: SDL_UpdateRect(): x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
+    //printf("seL4: SDL_UpdateRect(): x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
+    assert(x == 0);
+    assert(y == 0);
+    assert(w == 0);
+    assert(h == 0);
 }
 
 
@@ -196,5 +288,5 @@ SDL_WM_SetCaption(const char *title, const char *icon) {
 
 DECLSPEC void SDLCALL SDL_Quit(void) {
     printf("seL4: SDL_Quit()\n");
-    exit(0);
+    //exit(0);
 }
