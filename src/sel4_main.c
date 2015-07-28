@@ -67,6 +67,9 @@ static ps_chardevice_t inputdev;
 typedef void* fb_t;
 static fb_t fb = NULL;
 
+/* convenience pointer to VBE mode info */
+static seL4_VBEModeInfoBlock* mib;
+
 
 //////////////////////////////////////////////////////
 /*  Types and prototype for keyboard access here are from
@@ -244,18 +247,14 @@ sel4doom_get_framebuffer_vaddr() {
 }
 
 
-/*
- * Make VBE mode info available.
- */
-void
-sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib) {
-    *mib = bootinfo2->vbeModeInfoBlock;
+static void
+gfx_init_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
+    mib = &bootinfo->vbeModeInfoBlock;
 }
 
 
 static void
 gfx_map_video_ram(ps_io_mapper_t *io_mapper) {
-    seL4_VBEModeInfoBlock* mib = &bootinfo2->vbeModeInfoBlock;
     size_t size = mib->yRes * mib->linBytesPerScanLine;
     fb = (fb_t) ps_io_map(io_mapper,
             mib->physBasePtr,
@@ -270,7 +269,6 @@ static void
 gfx_display_testpic() {
     assert(fb != NULL);
     uint32_t* p = (uint32_t*) fb;
-    seL4_VBEModeInfoBlock* mib = &bootinfo2->vbeModeInfoBlock;
     const size_t size = mib->yRes * mib->linBytesPerScanLine;
     for (int i = 0; i < size / 4; i++) {
         /* set pixel;
@@ -365,6 +363,7 @@ static void
     init_keyboard();
 
     gfx_print_IA32BootInfo(bootinfo2);
+    gfx_init_IA32BootInfo(bootinfo2);
     gfx_map_video_ram(&io_ops.io_mapper);
     gfx_display_testpic();
 

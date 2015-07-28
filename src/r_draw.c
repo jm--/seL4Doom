@@ -139,7 +139,7 @@ void R_DrawColumn (void)
     {
 	// Re-map color indices from wall texture column
 	//  using a lighting/special effects LUT.
-        sel4doom_draw_pixel(dest, dc_colormap[dc_source[(frac>>FRACBITS)&127]]);
+	*dest = dc_colormap[dc_source[(frac>>FRACBITS)&127]];
 	
 	dest += SCREENWIDTH; 
 	frac += fracstep;
@@ -553,7 +553,7 @@ void R_DrawSpan (void)
 
 	// Lookup pixel from flat texture tile,
 	//  re-index using light/colormap.
-	sel4doom_draw_pixel(dest++, ds_colormap[ds_source[spot]]);
+	*dest++ = ds_colormap[ds_source[spot]];
 
 	// Next step in u,v.
 	xfrac += ds_xstep; 
@@ -824,8 +824,7 @@ R_VideoErase
   //  is not optiomal, e.g. byte by byte on
   //  a 32bit CPU, as GNU GCC/Linux libc did
   //  at one point.
-    sel4doom_memcpy(screens[0]+ofs, screens[1]+ofs, count);
-
+    memcpy (screens[0]+ofs, screens[1]+ofs, count); 
 } 
 
 

@@ -189,7 +189,7 @@ V_CopyRect
 
     for ( ; height>0 ; height--) 
     { 
-    sel4doom_memcpy(dest, src, width);
+	memcpy (dest, src, width); 
 	src += SCREENWIDTH; 
 	dest += SCREENWIDTH; 
     } 
@@ -253,7 +253,7 @@ V_DrawPatch
 			 
 	    while (count--) 
 	    { 
-	    sel4doom_draw_pixel(dest, *source++);
+		*dest = *source++; 
 		dest += SCREENWIDTH; 
 	    } 
 	    column = (column_t *)(  (byte *)column + column->length 
@@ -429,7 +429,7 @@ V_DrawBlock
 
     while (height--) 
     { 
-    sel4doom_memcpy(dest, src, width);
+	memcpy (dest, src, width); 
 	src += width; 
 	dest += SCREENWIDTH; 
     } 

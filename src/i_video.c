@@ -375,7 +375,7 @@ void I_FinishUpdate (void)
 //
 void I_ReadScreen (byte* scr)
 {
-    sel4doom_memcpy (scr, screens[0], SCREENWIDTH*SCREENHEIGHT);
+    memcpy (scr, screens[0], SCREENWIDTH*SCREENHEIGHT);
 }
 
 

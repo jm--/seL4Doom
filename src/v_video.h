@@ -111,13 +111,6 @@ V_MarkRect
   int		width,
   int		height );
 
-
-extern void
-sel4doom_draw_pixel(unsigned char* dst, unsigned char idx);
-
-extern void
-sel4doom_memcpy(unsigned char *restrict dest, const unsigned char *restrict src, size_t n);
-
 #endif
 //-----------------------------------------------------------------------------
 //

@@ -146,7 +146,7 @@ wipe_initMelt
     int i, r;
     
     // copy start screen to main screen
-    sel4doom_memcpy(wipe_scr, wipe_scr_start, width*height);
+    memcpy(wipe_scr, wipe_scr_start, width*height);
     
     // makes this wipe faster (in theory)
     // to have stuff in column-major format
@@ -202,10 +202,7 @@ wipe_doMelt
 		idx = 0;
 		for (j=dy;j;j--)
 		{
-		    unsigned char* d0 = (unsigned char*)(d + idx);
-		    unsigned char* s0 = (unsigned char*)s++;
-		    sel4doom_draw_pixel(d0, *s0);
-		    sel4doom_draw_pixel(d0 + 1, *(s0 + 1));
+		    d[idx] = *(s++);
 		    idx += width;
 		}
 		y[i] += dy;
@@ -214,10 +211,7 @@ wipe_doMelt
 		idx = 0;
 		for (j=height-y[i];j;j--)
 		{
-            unsigned char* d0 = (unsigned char*)(d + idx);
-            unsigned char* s0 = (unsigned char*)s++;
-            sel4doom_draw_pixel(d0, *s0);
-            sel4doom_draw_pixel(d0 + 1, *(s0 + 1));
+		    d[idx] = *(s++);
 		    idx += width;
 		}
 		done = false;
