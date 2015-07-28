@@ -8,10 +8,12 @@
  */
 
 #include <assert.h>
+#include <sel4/arch/bootinfo.h>
 #include "SDL.h"
 
 Uint32 sel4doom_get_current_time();
 void * sel4doom_get_framebuffer_vaddr();
+void sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib);
 int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
 
 
@@ -21,7 +23,58 @@ static SDL_Palette sdl_palette;
 //static SDL_Color sdl_color;
 static SDL_Color sdl_colors[256];
 
+/* VBE mode info */
+static seL4_VBEModeInfoBlock mib;
 
+/* base address of frame buffer (is virtual address) */
+static uint32_t* fb;
+
+/* size of screen buffer used in doom */
+static const uint8_t* max_fb = (void*) (320 * 200);
+
+
+
+
+/* we keep track of the bytes we write to the frame buffer
+ * so that we can read data back out;
+ */
+static uint8_t screen[320 * 200];
+
+void
+sel4doom_draw_pixel(uint8_t* dst, uint8_t idx) {
+
+    if (dst < max_fb) {
+        //use dst as an offset into real frame buffer
+        fb[(int) dst] = (sdl_colors[idx].r << mib.linRedOff)
+                   | (sdl_colors[idx].g << mib.linGreenOff)
+                   | (sdl_colors[idx].b << mib.linBlueOff);
+        screen[(int) dst] = idx;
+    } else {
+        *dst = idx;
+    }
+}
+
+
+void
+sel4doom_memcpy(uint8_t *restrict dest, const uint8_t *restrict src, size_t n)
+{
+    if (src < max_fb) {
+        if (dest >= max_fb) {
+            //we read from frame buffer
+            memcpy(dest, screen, n);
+            return;
+        }
+    } else {
+        if (dest < max_fb) {
+            //we write to frame buffer
+            for (int i = 0; i < n; i++) {
+                sel4doom_draw_pixel(dest + i, src[i]);
+            }
+            return;
+        }
+    }
+    assert(!"invalid call to sel4doom_memcpy()");
+}
 
 
 DECLSPEC void SDLCALL 
@@ -224,7 +277,8 @@ SDLCALL SDL_SetVideoMode (int width, int height, int bpp, Uint32 flags) {
     printf("seL4: SDL_SetVideoMode(): width=%d, height=%d, bpp=%d, flags=0x%x\n",
             width, height, bpp, flags);
 
-    void* fb = sel4doom_get_framebuffer_vaddr();
+    sel4doom_get_vbe(&mib);
+    fb = sel4doom_get_framebuffer_vaddr();
     assert(fb);
 
     //sdl_color = (SDL_Color) { .r = 0, .g = 0, .b = 0, .unused = 0 };
@@ -260,7 +314,11 @@ SDLCALL SDL_SetVideoMode (int width, int height, int bpp, Uint32 flags) {
         .w = width,
         .h = height,
         .pitch = width,
-        .pixels = fb,
+        /* set framebuffer address to NULL so that if unmodified DOOM code
+         * tries to write to it, we get a page fault; all code must use
+         * conversion functions above where we convert between 8bpp <-> 32bpp
+         * */
+        .pixels = 0, //fb
         .offset = 0,
         .hwdata = NULL,
         .clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
