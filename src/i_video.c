@@ -38,8 +38,8 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include "doomdef.h"
 
 DECLSPEC SDL_Surface * SDLCALL sel4doom_init_graphics(int* multiply);
-void sel4doom_memcpy(uint8_t *dst, const uint8_t *src, size_t n);
-void sel4doom_draw_pixel(uint8_t* dst, uint8_t idx);
+extern unsigned int sel4doom_colors32[256];
+extern unsigned int* sel4doom_fb;
 
 SDL_Surface *screen;
 
@@ -240,73 +240,82 @@ void I_FinishUpdate (void)
             screens[0][ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0x0;
     }
 
-    // scales the screen size before blitting it
     if (multiply == 1)
     {
-        unsigned char *olineptr;
-        unsigned char *ilineptr;
-        int y;
-
-        ilineptr = (unsigned char *) screens[0];
-        olineptr = (unsigned char *) screen->pixels;
-
-        y = SCREENHEIGHT;
-        while (y--)
+        unsigned int *src = (unsigned int *) screens[0];
+        unsigned int *dst = sel4doom_fb;
+        static const int n = SCREENHEIGHT * SCREENWIDTH / 4 ;
+        int i = n;
+        while (i--)
         {
-            sel4doom_memcpy(olineptr, ilineptr, screen->w);
-            ilineptr += SCREENWIDTH;
-            olineptr += screen->pitch;
+            /* We process four pixels per iteration. */
+            unsigned int fourpix = *src++;
+
+            //first "src" pixel
+            *dst++ = sel4doom_colors32[fourpix & 0xff];
+
+            //second "src" pixel
+            *dst++ = sel4doom_colors32[(fourpix >> 8) & 0xff];
+
+            //third "src" pixel
+            *dst++ = sel4doom_colors32[(fourpix >> 16) & 0xff];
+
+            //fourth "src" pixel
+            *dst++ = sel4doom_colors32[fourpix >> 24];
         }
     }
     else if (multiply == 2)
     {
-        unsigned char *olineptrs[2];
-        unsigned int *ilineptr;
-        int x, y;
-        unsigned int fouripixels;
+        /* pointer into source screen */
+        unsigned int *src = (unsigned int *) (screens[0]);
 
-        ilineptr = (unsigned int *) (screens[0]);
-        for (int i=0 ; i<2 ; i++) {
-            olineptrs[i] = (byte*) screen->pixels + i * screen->pitch;
-        }
+        /*indices into frame buffer, one per row */
+        int dst[2] = {0, screen->pitch};
 
-        y = SCREENHEIGHT;
+        int y = SCREENHEIGHT;
         while (y--)
         {
-            x = SCREENWIDTH;
+            int x = SCREENWIDTH;
             do
             {
-                fouripixels = *ilineptr++;
+                /* We process four "src" pixels per iteration
+                 * and for every source pixel, we write out 4 pixels to "dst".
+                 */
+                unsigned fourpix = *src++;
 
-                byte p;
-                p = (fouripixels & 0xff);
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
+                /* 32 bit RGB value */
+                unsigned int p;
+                //first "src" pixel
+                p = sel4doom_colors32[fourpix & 0xff];
+                sel4doom_fb[dst[0]++] = p;  //top left
+                sel4doom_fb[dst[0]++] = p;  //bottom left
+                sel4doom_fb[dst[1]++] = p;  //top right
+                sel4doom_fb[dst[1]++] = p;  //bottom right
 
-                p = (fouripixels & 0xff00) >> 8;
+                //second "src" pixel
+                p = sel4doom_colors32[(fourpix >> 8) & 0xff];
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
 
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
+                //third "src" pixel
+                p = sel4doom_colors32[(fourpix >> 16) & 0xff];
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
 
-                p = (fouripixels & 0xff0000) >> 16;
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
-
-                p = (fouripixels & 0xff000000) >> 24;
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[0]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
-                sel4doom_draw_pixel(olineptrs[1]++, p);
+                //fourth "src" pixel
+                p = sel4doom_colors32[fourpix >> 24];
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
             } while (x-=4);
 
-            olineptrs[0] += screen->pitch;
-            olineptrs[1] += screen->pitch;
+            dst[0] += screen->pitch;
+            dst[1] += screen->pitch;
         }
 
     }
