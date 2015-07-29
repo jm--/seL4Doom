@@ -39,7 +39,7 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 
 DECLSPEC SDL_Surface * SDLCALL sel4doom_init_graphics(int* multiply);
 void sel4doom_memcpy(uint8_t *dst, const uint8_t *src, size_t n);
-
+void sel4doom_draw_pixel(uint8_t* dst, uint8_t idx);
 
 SDL_Surface *screen;
 
@@ -253,7 +253,6 @@ void I_FinishUpdate (void)
         y = SCREENHEIGHT;
         while (y--)
         {
-            //jm memcpy(olineptr, ilineptr, screen->w);
             sel4doom_memcpy(olineptr, ilineptr, screen->w);
             ilineptr += SCREENWIDTH;
             olineptr += screen->pitch;
@@ -261,17 +260,14 @@ void I_FinishUpdate (void)
     }
     else if (multiply == 2)
     {
-        unsigned int *olineptrs[2];
+        unsigned char *olineptrs[2];
         unsigned int *ilineptr;
-        int x, y, i;
-        unsigned int twoopixels;
-        unsigned int twomoreopixels;
+        int x, y;
         unsigned int fouripixels;
 
         ilineptr = (unsigned int *) (screens[0]);
-        for (i=0 ; i<2 ; i++) {
-            olineptrs[i] =
-                    (unsigned int *)&((Uint8 *)screen->pixels)[i*screen->pitch];
+        for (int i=0 ; i<2 ; i++) {
+            olineptrs[i] = (byte*) screen->pixels + i * screen->pitch;
         }
 
         y = SCREENHEIGHT;
@@ -281,26 +277,36 @@ void I_FinishUpdate (void)
             do
             {
                 fouripixels = *ilineptr++;
-                twoopixels =    (fouripixels & 0xff000000)
-                    |   ((fouripixels>>8) & 0xffff00)
-                    |   ((fouripixels>>16) & 0xff);
-                twomoreopixels =    ((fouripixels<<16) & 0xff000000)
-                    |   ((fouripixels<<8) & 0xffff00)
-                    |   (fouripixels & 0xff);
-#ifdef __BIG_ENDIAN__
-                *olineptrs[0]++ = twoopixels;
-                *olineptrs[1]++ = twoopixels;
-                *olineptrs[0]++ = twomoreopixels;
-                *olineptrs[1]++ = twomoreopixels;
-#else
-                *olineptrs[0]++ = twomoreopixels;
-                *olineptrs[1]++ = twomoreopixels;
-                *olineptrs[0]++ = twoopixels;
-                *olineptrs[1]++ = twoopixels;
-#endif
+
+                byte p;
+                p = (fouripixels & 0xff);
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+
+                p = (fouripixels & 0xff00) >> 8;
+
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+
+                p = (fouripixels & 0xff0000) >> 16;
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+
+                p = (fouripixels & 0xff000000) >> 24;
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[0]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
+                sel4doom_draw_pixel(olineptrs[1]++, p);
             } while (x-=4);
-            olineptrs[0] += screen->pitch/4;
-            olineptrs[1] += screen->pitch/4;
+
+            olineptrs[0] += screen->pitch;
+            olineptrs[1] += screen->pitch;
         }
 
     }

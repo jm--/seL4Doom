@@ -37,8 +37,16 @@ sel4doom_init_graphics(int* multiply) {
     int height = 200;
     *multiply = 1;
 
-
     sel4doom_get_vbe(&mib);
+
+    //some default auto-detection for now
+    if (mib.xRes == 320 * 2) { *multiply = 2; }
+    if (mib.xRes == 320 * 3) { *multiply = 3; }
+    width *= *multiply;
+    height *= *multiply;
+    printf("seL4: sel4doom_init_graphics: xRes=%d yRes=%d ==> w=%d h=%d multiply=%d\n",
+            mib.xRes, mib.yRes, width, height, *multiply);
+
     fb = sel4doom_get_framebuffer_vaddr();
     assert(fb);
 
@@ -84,6 +92,15 @@ sel4doom_init_graphics(int* multiply) {
     return &sdl_surface;
 }
 
+
+void
+sel4doom_draw_pixel(uint8_t* dst, uint8_t idx)
+{
+        fb[(int) dst] =
+                     (sdl_colors[idx].r << mib.linRedOff)
+                   | (sdl_colors[idx].g << mib.linGreenOff)
+                   | (sdl_colors[idx].b << mib.linBlueOff);
+}
 
 void
 sel4doom_memcpy(uint8_t* dst, const uint8_t* src, size_t n)
