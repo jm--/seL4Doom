@@ -10,6 +10,8 @@
 #include <assert.h>
 #include <sel4/arch/bootinfo.h>
 #include "SDL.h"
+#include "doomdef.h"
+#include "d_event.h"
 
 Uint32 sel4doom_get_current_time();
 void * sel4doom_get_framebuffer_vaddr();
@@ -128,10 +130,8 @@ SDL_GetMouseState(int *x, int *y) {
 }
 
 
-DECLSPEC int SDLCALL 
-SDL_PollEvent(SDL_Event *event) {
-    //printf("seL4: SDL_PollEvent()\n");
-
+int
+sel4doom_poll_event(event_t* event) {
     int16_t vkey;
     int16_t extmode;
     int pressed = sel4doom_get_kb_state(&vkey, &extmode);
@@ -140,87 +140,106 @@ SDL_PollEvent(SDL_Event *event) {
         return 0;
     }
 
-    event->type = pressed ? SDL_KEYDOWN : SDL_KEYUP;
+    event->type = pressed ? ev_keydown : ev_keyup;
 
     if (extmode) {
         //cursor keys
         switch(vkey) {
         case 0x25:
-            event->key.keysym.sym = SDLK_LEFT;
-            break;
+            event->data1 = KEY_LEFTARROW;
+            return 1;
         case 0x26:
-            event->key.keysym.sym = SDLK_UP;
-            break;
+            event->data1 = KEY_UPARROW;
+            return 1;
         case 0x27:
-            event->key.keysym.sym = SDLK_RIGHT;
-            break;
+            event->data1 = KEY_RIGHTARROW;
+            return 1;
         case 0x28:
-            event->key.keysym.sym = SDLK_DOWN;
-            break;
+            event->data1 = KEY_DOWNARROW;
+            return 1;
+        case 0x18: //right alt
+            event->data1 = KEY_RALT;
+            return 1;
+        default:
+            //this default mapping may not be correct?
+            event->data1 = vkey;
+            return 1;
         }
-        return 1;
+        assert(!"we shouldn't be here");
     }
 
     switch(vkey) {
-    case 27:
-        event->key.keysym.sym = SDLK_ESCAPE;
-        break;
-    case 13: //enter key
-        event->key.keysym.sym = SDLK_RETURN;
-        break;
-    case 74: // 'j'
-        event->key.keysym.sym = SDLK_LEFT;
-        break;
-    case 73: // 'i'
-        event->key.keysym.sym = SDLK_UP;
-        break;
-    case 76: // 'l'
-        event->key.keysym.sym = SDLK_RIGHT;
-        break;
-    case 75: // 'k'
-        event->key.keysym.sym = SDLK_DOWN;
-        break;
-    case 32: // space
-        event->key.keysym.sym = SDLK_SPACE;
-        break;
-    case 78: // 'n'
-        event->key.keysym.sym = SDLK_n;
-        break;
-    case 89: // 'y'
-        event->key.keysym.sym = SDLK_y;
-        break;
-    case 160:
-        event->key.keysym.sym = SDLK_LSHIFT;
-        break;
-    case 161:
-        event->key.keysym.sym = SDLK_RSHIFT;
-        break;
-    case 162:
-        event->key.keysym.sym = SDLK_LCTRL;
-        break;
-//    case 0:
-//        event->key.keysym.sym = SDLK_RCTRL;
-//        break;
-    case 18:
-        event->key.keysym.sym = SDLK_LALT;
-        break;
-//    case 0:
-//        event->key.keysym.sym = SDLK_RALT;
-//        break;
-    case 189:
-        event->key.keysym.sym = SDLK_EQUALS;
-        break;
+    case 8:
+        event->data1 = KEY_BACKSPACE;
+        return 1;
+    case 160: //left shift
+    case 161: //right shift
+        event->data1 = KEY_RSHIFT;
+        return 1;
+    case 162: //left control
+        event->data1 = KEY_RCTRL;
+        return 1;
+    case 18: // left alt
+        event->data1 = KEY_RALT;
+        return 1;
+    case 112:
+        event->data1 = KEY_F1;
+        return 1;
+    case 113:
+        event->data1 = KEY_F2;
+        return 1;
+    case 114:
+        event->data1 = KEY_F3;
+        return 1;
+    case 115:
+        event->data1 = KEY_F4;
+        return 1;
+    case 116:
+        event->data1 = KEY_F5;
+        return 1;
+    case 117:
+        event->data1 = KEY_F6;
+        return 1;
+    case 118:
+        event->data1 = KEY_F7;
+        return 1;
+    case 119:
+        event->data1 = KEY_F8;
+        return 1;
+    case 120:
+        event->data1 = KEY_F9;
+        return 1;
+    case 121:
+        event->data1 = KEY_F10;
+        return 1;
+    case 122:
+        event->data1 = KEY_F11;
+        return 1;
+    case 123:
+        event->data1 = KEY_F12;
+        return 1;
     case 187:
-        event->key.keysym.sym = SDLK_MINUS;
-        break;
-//    default:
-//        event->key.keysym.sym = vkey;
-//        break;
+        event->data1 = KEY_EQUALS;
+        return 1;
+    case 189:
+        event->data1 = KEY_MINUS;
+        return 1;
+    case 19:
+        event->data1 = KEY_PAUSE;
+        return 1;
     }
+
+    if (65 <= vkey && vkey <= 90) {
+        //ASCII shift: upper case chars to lower case chars
+        //IDKFA :->
+        event->data1 = vkey + 32;
+        return 1;
+    }
+
+    //covers ESC, Enter, digits 1-0
+    event->data1 = vkey;
     return 1;
 }
-
-
 
 
 DECLSPEC int SDLCALL 
@@ -232,8 +251,6 @@ SDL_SetColors(SDL_Surface *surface, SDL_Color *colors, int firstcolor, int ncolo
     }
     return 1;
 }
-
-
 
 
 DECLSPEC void SDLCALL SDL_Quit(void) {

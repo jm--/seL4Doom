@@ -217,10 +217,10 @@ sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode) {
         ev= keyboard_poll_ps2_keyevent(&kb_state);
     }
 
-    if (ev.vkey != -1) {
-        printf("key %s: extmode=%d vkey=%d\n",
-                ev.pressed ? "DOWN":"UP  ", (*extmode > 0), ev.vkey);
-    }
+//    if (ev.vkey != -1) {
+//        printf("key %s: extmode=%d vkey=%d = 0x%x\n",
+//                ev.pressed ? "DOWN":"UP  ", (*extmode > 0), ev.vkey, ev.vkey);
+//    }
     *vkey = ev.vkey;
     return ev.pressed;
 }
