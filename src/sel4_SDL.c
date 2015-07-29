@@ -20,10 +20,6 @@ int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
 uint32_t sel4doom_colors32[256];
 
 static SDL_Surface sdl_surface;
-static SDL_PixelFormat sdl_format;
-static SDL_Palette sdl_palette;
-//static SDL_Color sdl_color;
-static SDL_Color sdl_colors[256];
 
 /* VBE mode info */
 static seL4_VBEModeInfoBlock mib;
@@ -34,7 +30,6 @@ uint32_t* sel4doom_fb;
 
 DECLSPEC SDL_Surface * SDLCALL
 sel4doom_init_graphics(int* multiply) {
-    Uint32 flags = 0;
     int width = 320;
     int height = 200;
     *multiply = 1;
@@ -52,39 +47,16 @@ sel4doom_init_graphics(int* multiply) {
     sel4doom_fb = sel4doom_get_framebuffer_vaddr();
     assert(sel4doom_fb);
 
-    sdl_palette.ncolors = 256;
-    sdl_palette.colors = sdl_colors;  // not yet initialized
-
-    sdl_format = (SDL_PixelFormat) {
-        .palette = 0,
-        .BitsPerPixel = 8,
-        .BytesPerPixel = 1,
-        .Rloss = 8,
-        .Gloss = 8,
-        .Bloss = 8,
-        .Aloss = 8,
-        .Rshift = 0,
-        .Gshift = 0,
-        .Bshift = 0,
-        .Ashift = 0,
-        .Rmask = 0,
-        .Gmask = 0,
-        .Bmask = 0,
-        .Amask = 0,
-        .colorkey = 0,
-        .alpha = 255
-    };
-
     sdl_surface = (SDL_Surface) {
-        .flags = flags,
-        .format = &sdl_format,
+        .flags = 0,
+        .format = NULL,
         .w = width,
         .h = height,
         .pitch = width,
         .pixels = 0, //fb,
         .offset = 0,
         .hwdata = NULL,
-        .clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
+        //.clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
         .unused1 = 0,
         .locked = 0,
         .map = NULL,  // this is used
@@ -249,41 +221,11 @@ SDL_PollEvent(SDL_Event *event) {
 }
 
 
-DECLSPEC int SDLCALL 
-SDL_LockSurface(SDL_Surface *surface) {
-    return 0;
-}
-
-
-DECLSPEC void SDLCALL 
-SDL_UnlockSurface(SDL_Surface *surface) {
-}
-
-
-DECLSPEC void SDLCALL 
-SDL_UpdateRect (SDL_Surface *screen, Sint32 x, Sint32 y, Uint32 w, Uint32 h) {
-    //printf("seL4: SDL_UpdateRect(): x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
-    assert(x == 0);
-    assert(y == 0);
-    assert(w == 0);
-    assert(h == 0);
-}
 
 
 DECLSPEC int SDLCALL 
 SDL_SetColors(SDL_Surface *surface, SDL_Color *colors, int firstcolor, int ncolors) {
-    printf("seL4: SDL_SetColors(): firstcolor=%d, ncolors=%d\n",
-            firstcolor, ncolors);
-
-    assert(firstcolor == 0);
-    assert(ncolors == 256);
-    assert(surface == &sdl_surface);
-    //assert(sdl_surface.format->palette == &sdl_palette);
-    assert(sdl_palette.ncolors == 256);
-    assert(sdl_palette.colors == sdl_colors);
-
     for (int i = firstcolor; i < ncolors; i++) {
-        sdl_colors[i] = colors[i];
         sel4doom_colors32[i] = (colors[i].r << mib.linRedOff)
                     | (colors[i].g << mib.linGreenOff)
                     | (colors[i].b << mib.linBlueOff);
@@ -292,72 +234,6 @@ SDL_SetColors(SDL_Surface *surface, SDL_Color *colors, int firstcolor, int ncolo
 }
 
 
-DECLSPEC SDL_Surface * 
-SDLCALL SDL_SetVideoMode (int width, int height, int bpp, Uint32 flags) {
-    printf("seL4: SDL_SetVideoMode(): width=%d, height=%d, bpp=%d, flags=0x%x\n",
-            width, height, bpp, flags);
-
-    sel4doom_get_vbe(&mib);
-    sel4doom_fb = sel4doom_get_framebuffer_vaddr();
-    assert(sel4doom_fb);
-
-    //sdl_color = (SDL_Color) { .r = 0, .g = 0, .b = 0, .unused = 0 };
-
-    //sdl_palette.ncolors = 256;
-    //sdl_palette.colors = &sdl_color;
-    sdl_palette.ncolors = 256;
-    sdl_palette.colors = sdl_colors;  // not yet initialized
-
-    sdl_format = (SDL_PixelFormat) {
-        .palette = &sdl_palette,
-        .BitsPerPixel = 8,
-        .BytesPerPixel = 1,
-        .Rloss = 8,
-        .Gloss = 8,
-        .Bloss = 8,
-        .Aloss = 8,
-        .Rshift = 0,
-        .Gshift = 0,
-        .Bshift = 0,
-        .Ashift = 0,
-        .Rmask = 0,
-        .Gmask = 0,
-        .Bmask = 0,
-        .Amask = 0,
-        .colorkey = 0,
-        .alpha = 255
-    };
-
-    sdl_surface = (SDL_Surface) {
-        .flags = flags,
-        .format = &sdl_format,
-        .w = width,
-        .h = height,
-        .pitch = width,
-        .pixels = sel4doom_fb,
-        .offset = 0,
-        .hwdata = NULL,
-        .clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
-        .unused1 = 0,
-        .locked = 0,
-        .map = NULL,  // this is used
-        .format_version = 3,
-        .refcount = 1
-    };
-
-    return &sdl_surface;
-}
-
-
-DECLSPEC int SDLCALL 
-SDL_ShowCursor(int toggle) {
-    return 0;
-}
-
-
-DECLSPEC void SDLCALL 
-SDL_WM_SetCaption(const char *title, const char *icon) {
-}
 
 
 DECLSPEC void SDLCALL SDL_Quit(void) {

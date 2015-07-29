@@ -377,10 +377,6 @@ void I_FinishUpdate (void)
         }
 
     }
-    if ( SDL_MUSTLOCK(screen) ) {
-        SDL_UnlockSurface(screen);
-    }
-    SDL_UpdateRect(screen, 0, 0, 0, 0);
 }
 
 
