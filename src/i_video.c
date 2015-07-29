@@ -25,7 +25,8 @@ static const char
 rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 
 #include <stdlib.h>
-
+#include <assert.h>
+#include <sel4/arch/bootinfo.h>
 #include "SDL.h"
 
 #include "m_swap.h"
@@ -37,12 +38,22 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 
 #include "doomdef.h"
 
-void sel4doom_init_graphics(int* multiply, int* pitch);
-int sel4doom_poll_event(event_t* event);
-extern unsigned int sel4doom_colors32[256];
-extern unsigned int* sel4doom_fb;
 
-/* width of real screen */
+void* sel4doom_get_framebuffer_vaddr();
+void sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib);
+int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
+
+
+/* the current color palette in 32bit format as used by frame buffer */
+static uint32_t sel4doom_colors32[256];
+
+/* VBE mode info */
+static seL4_VBEModeInfoBlock mib;
+
+/* base address of frame buffer (is virtual address) */
+static uint32_t* sel4doom_fb;
+
+/* width of real screen in pixels (i.e. 320 * multiply) */
 static int pitch;
 
 // Blocky mode,
@@ -52,11 +63,122 @@ static int pitch;
 static int	multiply=1;
 
 
-void I_ShutdownGraphics(void)
-{
-  SDL_Quit();
+
+int
+sel4doom_poll_event(event_t* event) {
+    int16_t vkey;
+    int16_t extmode;
+    int pressed = sel4doom_get_kb_state(&vkey, &extmode);
+    if (vkey == -1) {
+        //no pending events
+        return 0;
+    }
+
+    event->type = pressed ? ev_keydown : ev_keyup;
+
+    if (extmode) {
+        //cursor keys
+        switch(vkey) {
+        case 0x25:
+            event->data1 = KEY_LEFTARROW;
+            return 1;
+        case 0x26:
+            event->data1 = KEY_UPARROW;
+            return 1;
+        case 0x27:
+            event->data1 = KEY_RIGHTARROW;
+            return 1;
+        case 0x28:
+            event->data1 = KEY_DOWNARROW;
+            return 1;
+        case 0x18: //right alt
+            event->data1 = KEY_RALT;
+            return 1;
+        default:
+            //this default mapping may not be correct?
+            event->data1 = vkey;
+            return 1;
+        }
+        assert(!"we shouldn't be here");
+    }
+
+    switch(vkey) {
+    case 8:
+        event->data1 = KEY_BACKSPACE;
+        return 1;
+    case 160: //left shift
+    case 161: //right shift
+        event->data1 = KEY_RSHIFT;
+        return 1;
+    case 162: //left control
+        event->data1 = KEY_RCTRL;
+        return 1;
+    case 18: // left alt
+        event->data1 = KEY_RALT;
+        return 1;
+    case 112:
+        event->data1 = KEY_F1;
+        return 1;
+    case 113:
+        event->data1 = KEY_F2;
+        return 1;
+    case 114:
+        event->data1 = KEY_F3;
+        return 1;
+    case 115:
+        event->data1 = KEY_F4;
+        return 1;
+    case 116:
+        event->data1 = KEY_F5;
+        return 1;
+    case 117:
+        event->data1 = KEY_F6;
+        return 1;
+    case 118:
+        event->data1 = KEY_F7;
+        return 1;
+    case 119:
+        event->data1 = KEY_F8;
+        return 1;
+    case 120:
+        event->data1 = KEY_F9;
+        return 1;
+    case 121:
+        event->data1 = KEY_F10;
+        return 1;
+    case 122:
+        event->data1 = KEY_F11;
+        return 1;
+    case 123:
+        event->data1 = KEY_F12;
+        return 1;
+    case 187:
+        event->data1 = KEY_EQUALS;
+        return 1;
+    case 189:
+        event->data1 = KEY_MINUS;
+        return 1;
+    case 19:
+        event->data1 = KEY_PAUSE;
+        return 1;
+    }
+
+    if (65 <= vkey && vkey <= 90) {
+        //ASCII shift: upper case chars to lower case chars
+        //IDKFA :->
+        event->data1 = vkey + 32;
+        return 1;
+    }
+
+    //covers ESC, Enter, digits 1-0
+    event->data1 = vkey;
+    return 1;
 }
 
+
+void I_ShutdownGraphics(void)
+{
+}
 
 
 //
@@ -267,30 +389,37 @@ void I_ReadScreen (byte* scr)
 //
 void I_SetPalette (byte* palette)
 {
-    int i;
-    SDL_Color colors[256];
-
-    for ( i=0; i<256; ++i ) {
-	colors[i].r = gammatable[usegamma][*palette++];
-	colors[i].g = gammatable[usegamma][*palette++];
-	colors[i].b = gammatable[usegamma][*palette++];
-	colors[i].unused = 0;
+    for (int i = 0; i < 256; i++, palette += 3) {
+        sel4doom_colors32[i] =
+                      (gammatable[usegamma][*palette] << mib.linRedOff)
+                    | (gammatable[usegamma][*(palette + 1)] << mib.linGreenOff)
+                    | (gammatable[usegamma][*(palette + 2)] << mib.linBlueOff);
     }
-    SDL_SetColors(NULL, colors, 0, 256);
 }
 
 
-
 void I_InitGraphics(void) {
-    static int  firsttime=1;
-    if (!firsttime) {
-        I_Error("I_InitGraphics(): not first time");
-    }
+    int width = SCREENWIDTH;
+    int height = SCREENHEIGHT;
+    multiply = 1;
 
-    sel4doom_init_graphics(&multiply, &pitch);
+    sel4doom_get_vbe(&mib);
+
+    //some default auto-detection for now
+    if (mib.xRes == SCREENWIDTH * 2) { multiply = 2; }
+    if (mib.xRes == SCREENWIDTH * 3) { multiply = 3; }
+    width *= multiply;
+    height *= multiply;
+    pitch = width;
+    printf("seL4: sel4doom_init_graphics: xRes=%d yRes=%d ==> w=%d h=%d multiply=%d\n",
+            mib.xRes, mib.yRes, width, height, multiply);
+
+    sel4doom_fb = sel4doom_get_framebuffer_vaddr();
+    assert(sel4doom_fb);
+
+
     screens[0] = (unsigned char *) malloc (SCREENWIDTH * SCREENHEIGHT);
     if (screens[0] == NULL) {
         I_Error("Couldn't allocate screen memory");
     }
-
 }
