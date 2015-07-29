@@ -21,7 +21,7 @@ int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
 /* the current color palette in 32bit format as used by frame buffer */
 uint32_t sel4doom_colors32[256];
 
-static SDL_Surface sdl_surface;
+//static SDL_Surface sdl_surface;
 
 /* VBE mode info */
 static seL4_VBEModeInfoBlock mib;
@@ -30,8 +30,8 @@ static seL4_VBEModeInfoBlock mib;
 uint32_t* sel4doom_fb;
 
 
-DECLSPEC SDL_Surface * SDLCALL
-sel4doom_init_graphics(int* multiply) {
+void
+sel4doom_init_graphics(int* multiply, int* pitch) {
     int width = 320;
     int height = 200;
     *multiply = 1;
@@ -43,29 +43,29 @@ sel4doom_init_graphics(int* multiply) {
     if (mib.xRes == 320 * 3) { *multiply = 3; }
     width *= *multiply;
     height *= *multiply;
+    *pitch = width;
     printf("seL4: sel4doom_init_graphics: xRes=%d yRes=%d ==> w=%d h=%d multiply=%d\n",
             mib.xRes, mib.yRes, width, height, *multiply);
 
     sel4doom_fb = sel4doom_get_framebuffer_vaddr();
     assert(sel4doom_fb);
 
-    sdl_surface = (SDL_Surface) {
-        .flags = 0,
-        .format = NULL,
-        .w = width,
-        .h = height,
-        .pitch = width,
-        .pixels = 0, //fb,
-        .offset = 0,
-        .hwdata = NULL,
-        //.clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
-        .unused1 = 0,
-        .locked = 0,
-        .map = NULL,  // this is used
-        .format_version = 3,
-        .refcount = 1
-    };
-    return &sdl_surface;
+//    sdl_surface = (SDL_Surface) {
+//        .flags = 0,
+//        .format = NULL,
+//        .w = width,
+//        .h = height,
+//        .pitch = width,
+//        .pixels = 0, //fb,
+//        .offset = 0,
+//        .hwdata = NULL,
+//        //.clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
+//        .unused1 = 0,
+//        .locked = 0,
+//        .map = NULL,  // this is used
+//        .format_version = 3,
+//        .refcount = 1
+//    };
 }
 
 

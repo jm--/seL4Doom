@@ -37,15 +37,13 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 
 #include "doomdef.h"
 
-DECLSPEC SDL_Surface * SDLCALL sel4doom_init_graphics(int* multiply);
+void sel4doom_init_graphics(int* multiply, int* pitch);
 int sel4doom_poll_event(event_t* event);
 extern unsigned int sel4doom_colors32[256];
 extern unsigned int* sel4doom_fb;
 
-SDL_Surface *screen;
-
-// Fake mouse handling.
-boolean		grabMouse;
+/* width of real screen */
+static int pitch;
 
 // Blocky mode,
 // replace each 320x200 pixel with multiply*multiply pixels.
@@ -145,7 +143,7 @@ void I_FinishUpdate (void)
         unsigned int *src = (unsigned int *) (screens[0]);
 
         /*indices into frame buffer, one per row */
-        int dst[2] = {0, screen->pitch};
+        int dst[2] = {0, pitch};
 
         int y = SCREENHEIGHT;
         while (y--)
@@ -189,8 +187,8 @@ void I_FinishUpdate (void)
                 sel4doom_fb[dst[1]++] = p;
             } while (x-=4);
 
-            dst[0] += screen->pitch;
-            dst[1] += screen->pitch;
+            dst[0] += pitch;
+            dst[1] += pitch;
         }
 
     }
@@ -205,7 +203,7 @@ void I_FinishUpdate (void)
         ilineptr = (unsigned int *) (screens[0]);
         for (i=0 ; i<3 ; i++) {
             olineptrs[i] =
-                    (unsigned int *)&((Uint8 *)screen->pixels)[i*screen->pitch];
+                    (unsigned int *)&((Uint8 *)0)[i*pitch];
         }
 
         y = SCREENHEIGHT;
@@ -246,9 +244,9 @@ void I_FinishUpdate (void)
                 *olineptrs[2]++ = fouropixels[0];
 #endif
             } while (x-=4);
-            olineptrs[0] += 2*screen->pitch/4;
-            olineptrs[1] += 2*screen->pitch/4;
-            olineptrs[2] += 2*screen->pitch/4;
+            olineptrs[0] += 2*pitch/4;
+            olineptrs[1] += 2*pitch/4;
+            olineptrs[2] += 2*pitch/4;
         }
 
     }
@@ -278,7 +276,7 @@ void I_SetPalette (byte* palette)
 	colors[i].b = gammatable[usegamma][*palette++];
 	colors[i].unused = 0;
     }
-    SDL_SetColors(screen, colors, 0, 256);
+    SDL_SetColors(NULL, colors, 0, 256);
 }
 
 
@@ -289,7 +287,7 @@ void I_InitGraphics(void) {
         I_Error("I_InitGraphics(): not first time");
     }
 
-    screen = sel4doom_init_graphics(&multiply);
+    sel4doom_init_graphics(&multiply, &pitch);
     screens[0] = (unsigned char *) malloc (SCREENWIDTH * SCREENHEIGHT);
     if (screens[0] == NULL) {
         I_Error("Couldn't allocate screen memory");
