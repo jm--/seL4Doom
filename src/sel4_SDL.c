@@ -16,6 +16,8 @@ void * sel4doom_get_framebuffer_vaddr();
 void sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib);
 int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
 
+/* the current color palette in 32bit format as used by frame buffer */
+static uint32_t colors32[256];
 
 static SDL_Surface sdl_surface;
 static SDL_PixelFormat sdl_format;
@@ -54,7 +56,7 @@ sel4doom_init_graphics(int* multiply) {
     sdl_palette.colors = sdl_colors;  // not yet initialized
 
     sdl_format = (SDL_PixelFormat) {
-        .palette = &sdl_palette,
+        .palette = 0,
         .BitsPerPixel = 8,
         .BytesPerPixel = 1,
         .Rloss = 8,
@@ -96,20 +98,14 @@ sel4doom_init_graphics(int* multiply) {
 void
 sel4doom_draw_pixel(uint8_t* dst, uint8_t idx)
 {
-        fb[(int) dst] =
-                     (sdl_colors[idx].r << mib.linRedOff)
-                   | (sdl_colors[idx].g << mib.linGreenOff)
-                   | (sdl_colors[idx].b << mib.linBlueOff);
+        fb[(int) dst] = colors32[idx];
 }
 
 void
 sel4doom_memcpy(uint8_t* dst, const uint8_t* src, size_t n)
 {
     for (int i = 0; i < n; i++) {
-        fb[(int) dst + i] =
-                     (sdl_colors[*(src + i)].r << mib.linRedOff)
-                   | (sdl_colors[*(src + i)].g << mib.linGreenOff)
-                   | (sdl_colors[*(src + i)].b << mib.linBlueOff);
+        fb[(int) dst + i] = colors32[*(src + i)];
     }
 }
 
@@ -297,14 +293,16 @@ SDL_SetColors(SDL_Surface *surface, SDL_Color *colors, int firstcolor, int ncolo
     assert(firstcolor == 0);
     assert(ncolors == 256);
     assert(surface == &sdl_surface);
-    assert(sdl_surface.format->palette == &sdl_palette);
+    //assert(sdl_surface.format->palette == &sdl_palette);
     assert(sdl_palette.ncolors == 256);
     assert(sdl_palette.colors == sdl_colors);
 
     for (int i = firstcolor; i < ncolors; i++) {
         sdl_colors[i] = colors[i];
+        colors32[i] = (colors[i].r << mib.linRedOff)
+                    | (colors[i].g << mib.linGreenOff)
+                    | (colors[i].b << mib.linBlueOff);
     }
-
     return 1;
 }
 
