@@ -8,10 +8,12 @@
  */
 
 #include <assert.h>
+#include <sel4/arch/bootinfo.h>
 #include "SDL.h"
 
 Uint32 sel4doom_get_current_time();
 void * sel4doom_get_framebuffer_vaddr();
+void sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib);
 int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
 
 
@@ -21,7 +23,78 @@ static SDL_Palette sdl_palette;
 //static SDL_Color sdl_color;
 static SDL_Color sdl_colors[256];
 
+/* VBE mode info */
+static seL4_VBEModeInfoBlock mib;
 
+/* base address of frame buffer (is virtual address) */
+static uint32_t* fb;
+
+
+DECLSPEC SDL_Surface * SDLCALL
+sel4doom_init_graphics(int* multiply) {
+    Uint32 flags = 0;
+    int width = 320;
+    int height = 200;
+    *multiply = 1;
+
+
+    sel4doom_get_vbe(&mib);
+    fb = sel4doom_get_framebuffer_vaddr();
+    assert(fb);
+
+    sdl_palette.ncolors = 256;
+    sdl_palette.colors = sdl_colors;  // not yet initialized
+
+    sdl_format = (SDL_PixelFormat) {
+        .palette = &sdl_palette,
+        .BitsPerPixel = 8,
+        .BytesPerPixel = 1,
+        .Rloss = 8,
+        .Gloss = 8,
+        .Bloss = 8,
+        .Aloss = 8,
+        .Rshift = 0,
+        .Gshift = 0,
+        .Bshift = 0,
+        .Ashift = 0,
+        .Rmask = 0,
+        .Gmask = 0,
+        .Bmask = 0,
+        .Amask = 0,
+        .colorkey = 0,
+        .alpha = 255
+    };
+
+    sdl_surface = (SDL_Surface) {
+        .flags = flags,
+        .format = &sdl_format,
+        .w = width,
+        .h = height,
+        .pitch = width,
+        .pixels = 0, //fb,
+        .offset = 0,
+        .hwdata = NULL,
+        .clip_rect = (SDL_Rect){.x = 0, .y = 0, .w = width, .h = height},
+        .unused1 = 0,
+        .locked = 0,
+        .map = NULL,  // this is used
+        .format_version = 3,
+        .refcount = 1
+    };
+    return &sdl_surface;
+}
+
+
+void
+sel4doom_memcpy(uint8_t* dst, const uint8_t* src, size_t n)
+{
+    for (int i = 0; i < n; i++) {
+        fb[(int) dst + i] =
+                     (sdl_colors[*(src + i)].r << mib.linRedOff)
+                   | (sdl_colors[*(src + i)].g << mib.linGreenOff)
+                   | (sdl_colors[*(src + i)].b << mib.linBlueOff);
+    }
+}
 
 
 DECLSPEC void SDLCALL 
@@ -224,7 +297,8 @@ SDLCALL SDL_SetVideoMode (int width, int height, int bpp, Uint32 flags) {
     printf("seL4: SDL_SetVideoMode(): width=%d, height=%d, bpp=%d, flags=0x%x\n",
             width, height, bpp, flags);
 
-    void* fb = sel4doom_get_framebuffer_vaddr();
+    sel4doom_get_vbe(&mib);
+    fb = sel4doom_get_framebuffer_vaddr();
     assert(fb);
 
     //sdl_color = (SDL_Color) { .r = 0, .g = 0, .b = 0, .unused = 0 };
