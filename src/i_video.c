@@ -70,8 +70,19 @@ static uint32_t row_offset = 0;
 static uint32_t	multiply = 1;
 
 
+/*
+ * Set all pixels to black.
+ */
+static void
+sel4doom_clear_screen() {
+    const size_t size = mib.yRes * mib.linBytesPerScanLine;
+    for (int i = 0; i < size / 4; i++) {
+        sel4doom_fb[i] = 0;
+    }
+}
 
-int
+
+static int
 sel4doom_poll_event(event_t* event) {
     int16_t vkey;
     int16_t extmode;
@@ -185,6 +196,7 @@ sel4doom_poll_event(event_t* event) {
 
 void I_ShutdownGraphics(void)
 {
+    sel4doom_clear_screen();
 }
 
 
@@ -194,7 +206,6 @@ void I_ShutdownGraphics(void)
 void I_StartFrame (void)
 {
     // er?
-
 }
 
 
@@ -449,6 +460,6 @@ void I_InitGraphics(void) {
     }
     printf("seL4: I_InitGraphics: setting multiply=%d\n", multiply);
 
-    //row_offset = mib.xRes - (SCREENWIDTH * multiply) + ((multiply - 1) * mib.xRes);
     row_offset = multiply * (mib.xRes - SCREENWIDTH);
+    sel4doom_clear_screen();
 }
