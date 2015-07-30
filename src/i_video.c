@@ -50,17 +50,19 @@ static uint32_t sel4doom_colors32[256];
 /* VBE mode info */
 static seL4_VBEModeInfoBlock mib;
 
-/* base address of frame buffer (is virtual address) */
-static uint32_t* sel4doom_fb;
+/* base address of frame buffer (virtual address) */
+static uint32_t* sel4doom_fb = NULL;
 
 /* width of real screen in pixels (i.e. 320 * multiply) */
-static int pitch;
+static uint32_t pitch = 0;
+
+static uint32_t row_offset = 0;
 
 // Blocky mode,
 // replace each 320x200 pixel with multiply*multiply pixels.
 // According to Dave Taylor, it still is a bonehead thing
 // to use ....
-static int	multiply=1;
+static uint32_t	multiply = 1;
 
 
 
@@ -216,50 +218,50 @@ void I_UpdateNoBlit (void)
 //
 void I_FinishUpdate (void)
 {
-    static int  lasttic;
-    int     tics;
-    int     i;
-
-    // draws little dots on the bottom of the screen
+    // draws little dots on the bottom of the screen (frame rate)
     if (devparm)
     {
+        static int lasttic = 0;
+        int curtic = I_GetTime();
+        int tics = curtic - lasttic;
+        lasttic = curtic;
+        if (tics > 20) {
+            tics = 20;
+        }
 
-        i = I_GetTime();
-        tics = i - lasttic;
-        lasttic = i;
-        if (tics > 20) tics = 20;
-
-        for (i=0 ; i<tics*2 ; i+=2)
+        int i;
+        for (i=0 ; i<tics*2 ; i+=2) {
             screens[0][ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0xff;
-        for ( ; i<20*2 ; i+=2)
+        }
+        for ( ; i<20*2 ; i+=2) {
             screens[0][ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0x0;
+        }
     }
-
+    // ------------------------
     if (multiply == 1)
     {
         unsigned int *src = (unsigned int *) screens[0];
         unsigned int *dst = sel4doom_fb;
-        static const int n = SCREENHEIGHT * SCREENWIDTH / 4 ;
-        int i = n;
-        while (i--)
-        {
-            /* We process four pixels per iteration. */
-            unsigned int fourpix = *src++;
+        for (int y = SCREENHEIGHT; y; y--) {
+            for (int x = SCREENWIDTH; x; x -= 4) {
+                /* We process four pixels per iteration. */
+                unsigned int fourpix = *src++;
 
-            //first "src" pixel
-            *dst++ = sel4doom_colors32[fourpix & 0xff];
-
-            //second "src" pixel
-            *dst++ = sel4doom_colors32[(fourpix >> 8) & 0xff];
-
-            //third "src" pixel
-            *dst++ = sel4doom_colors32[(fourpix >> 16) & 0xff];
-
-            //fourth "src" pixel
-            *dst++ = sel4doom_colors32[fourpix >> 24];
+                //first "src" pixel
+                *dst++ = sel4doom_colors32[fourpix & 0xff];
+                //second "src" pixel
+                *dst++ = sel4doom_colors32[(fourpix >> 8) & 0xff];
+                //third "src" pixel
+                *dst++ = sel4doom_colors32[(fourpix >> 16) & 0xff];
+                //fourth "src" pixel
+                *dst++ = sel4doom_colors32[fourpix >> 24];
+            }
+            dst += row_offset;
         }
+        return;
     }
-    else if (multiply == 2)
+    // ------------------------
+    if (multiply == 2)
     {
         /* pointer into source screen */
         unsigned int *src = (unsigned int *) (screens[0]);
@@ -267,12 +269,8 @@ void I_FinishUpdate (void)
         /*indices into frame buffer, one per row */
         int dst[2] = {0, pitch};
 
-        int y = SCREENHEIGHT;
-        while (y--)
-        {
-            int x = SCREENWIDTH;
-            do
-            {
+        for (int y = SCREENHEIGHT; y; y--) {
+            for (int x = SCREENWIDTH; x; x -= 4) {
                 /* We process four "src" pixels per iteration
                  * and for every source pixel, we write out 4 pixels to "dst".
                  */
@@ -283,8 +281,8 @@ void I_FinishUpdate (void)
                 //first "src" pixel
                 p = sel4doom_colors32[fourpix & 0xff];
                 sel4doom_fb[dst[0]++] = p;  //top left
-                sel4doom_fb[dst[0]++] = p;  //bottom left
-                sel4doom_fb[dst[1]++] = p;  //top right
+                sel4doom_fb[dst[0]++] = p;  //top right
+                sel4doom_fb[dst[1]++] = p;  //bottom left
                 sel4doom_fb[dst[1]++] = p;  //bottom right
 
                 //second "src" pixel
@@ -307,71 +305,86 @@ void I_FinishUpdate (void)
                 sel4doom_fb[dst[0]++] = p;
                 sel4doom_fb[dst[1]++] = p;
                 sel4doom_fb[dst[1]++] = p;
-            } while (x-=4);
-
-            dst[0] += pitch;
-            dst[1] += pitch;
+            }
+            dst[0] += row_offset;
+            dst[1] += row_offset;
         }
-
+        return;
     }
-    else if (multiply == 3)
+    if (multiply == 3)
     {
-        unsigned int *olineptrs[3];
-        unsigned int *ilineptr;
-        int x, y, i;
-        unsigned int fouropixels[3];
-        unsigned int fouripixels;
+        /* pointer into source screen */
+        unsigned int *src = (unsigned int *) (screens[0]);
 
-        ilineptr = (unsigned int *) (screens[0]);
-        for (i=0 ; i<3 ; i++) {
-            olineptrs[i] =
-                    (unsigned int *)&((Uint8 *)0)[i*pitch];
+        /*start indices into frame buffer, one per row */
+        int dst[3] = {0, pitch, pitch + pitch};
+
+        for (int y = SCREENHEIGHT; y; y--) {
+            for (int x = SCREENWIDTH; x; x -= 4) {
+                /* We process four "src" pixels per iteration
+                 * and for every source pixel, we write out 9 pixels to "dst".
+                 */
+                unsigned fourpix = *src++;
+
+                /* 32 bit RGB value */
+                unsigned int p;
+                //first "src" pixel
+                p = sel4doom_colors32[fourpix & 0xff];
+                sel4doom_fb[dst[0]++] = p;  //top row, left
+                sel4doom_fb[dst[0]++] = p;  //top row, middle
+                sel4doom_fb[dst[0]++] = p;  //top row, right
+                sel4doom_fb[dst[1]++] = p;  //middle row, left
+                sel4doom_fb[dst[1]++] = p;  //middle row, middle
+                sel4doom_fb[dst[1]++] = p;  //middle row, right
+                sel4doom_fb[dst[2]++] = p;  //bottom row, left
+                sel4doom_fb[dst[2]++] = p;  //bottom row, middle
+                sel4doom_fb[dst[2]++] = p;  //bottom row, right
+
+                //second "src" pixel
+                p = sel4doom_colors32[(fourpix >> 8) & 0xff];
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+
+                //third "src" pixel
+                p = sel4doom_colors32[(fourpix >> 16) & 0xff];
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+
+                //fourth "src" pixel
+                p = sel4doom_colors32[fourpix >> 24];
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[0]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[1]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+                sel4doom_fb[dst[2]++] = p;
+            }
+
+            //each dst moves two pixel rows forward
+            dst[0] += row_offset;
+            dst[1] += row_offset;
+            dst[2] += row_offset;
         }
-
-        y = SCREENHEIGHT;
-        while (y--)
-        {
-            x = SCREENWIDTH;
-            do
-            {
-                fouripixels = *ilineptr++;
-                fouropixels[0] = (fouripixels & 0xff000000)
-                    |   ((fouripixels>>8) & 0xff0000)
-                    |   ((fouripixels>>16) & 0xffff);
-                fouropixels[1] = ((fouripixels<<8) & 0xff000000)
-                    |   (fouripixels & 0xffff00)
-                    |   ((fouripixels>>8) & 0xff);
-                fouropixels[2] = ((fouripixels<<16) & 0xffff0000)
-                    |   ((fouripixels<<8) & 0xff00)
-                    |   (fouripixels & 0xff);
-#ifdef __BIG_ENDIAN__
-                *olineptrs[0]++ = fouropixels[0];
-                *olineptrs[1]++ = fouropixels[0];
-                *olineptrs[2]++ = fouropixels[0];
-                *olineptrs[0]++ = fouropixels[1];
-                *olineptrs[1]++ = fouropixels[1];
-                *olineptrs[2]++ = fouropixels[1];
-                *olineptrs[0]++ = fouropixels[2];
-                *olineptrs[1]++ = fouropixels[2];
-                *olineptrs[2]++ = fouropixels[2];
-#else
-                *olineptrs[0]++ = fouropixels[2];
-                *olineptrs[1]++ = fouropixels[2];
-                *olineptrs[2]++ = fouropixels[2];
-                *olineptrs[0]++ = fouropixels[1];
-                *olineptrs[1]++ = fouropixels[1];
-                *olineptrs[2]++ = fouropixels[1];
-                *olineptrs[0]++ = fouropixels[0];
-                *olineptrs[1]++ = fouropixels[0];
-                *olineptrs[2]++ = fouropixels[0];
-#endif
-            } while (x-=4);
-            olineptrs[0] += 2*pitch/4;
-            olineptrs[1] += 2*pitch/4;
-            olineptrs[2] += 2*pitch/4;
-        }
-
+        return;
     }
+    I_Error("Unsupported 'multiply' factor.");
 }
 
 
@@ -401,16 +414,17 @@ void I_SetPalette (byte* palette)
 void I_InitGraphics(void) {
     int width = SCREENWIDTH;
     int height = SCREENHEIGHT;
-    multiply = 1;
+    multiply = 3;
 
     sel4doom_get_vbe(&mib);
 
     //some default auto-detection for now
-    if (mib.xRes == SCREENWIDTH * 2) { multiply = 2; }
-    if (mib.xRes == SCREENWIDTH * 3) { multiply = 3; }
+    //if (mib.xRes == SCREENWIDTH * 2) { multiply = 2; }
+    //if (mib.xRes == SCREENWIDTH * 3) { multiply = 3; }
     width *= multiply;
     height *= multiply;
-    pitch = width;
+    pitch = 1024;
+    row_offset = pitch - width + ((multiply - 1) * pitch);
     printf("seL4: sel4doom_init_graphics: xRes=%d yRes=%d ==> w=%d h=%d multiply=%d\n",
             mib.xRes, mib.yRes, width, height, multiply);
 
