@@ -53,9 +53,14 @@ static seL4_VBEModeInfoBlock mib;
 /* base address of frame buffer (virtual address) */
 static uint32_t* sel4doom_fb = NULL;
 
-/* width of real screen in pixels (i.e. 320 * multiply) */
-static uint32_t pitch = 0;
 
+/* This version of DOOM uses 320 pixels per row. Because of "blocky" mode
+ * (multiply * 320) pixels are displayed per row. The number of pixels on the real
+ * screen is determined by the current graphics mode and is given by mib.xRes.
+ * If mib.xRes is not a multiple of 320, then a black margin area remains
+ * between the content area and the screen area. row_offset is the width of this
+ * margin area and the number of pixel rows that are skipped in "blocky" mode.
+ */
 static uint32_t row_offset = 0;
 
 // Blocky mode,
@@ -267,7 +272,7 @@ void I_FinishUpdate (void)
         unsigned int *src = (unsigned int *) (screens[0]);
 
         /*indices into frame buffer, one per row */
-        int dst[2] = {0, pitch};
+        int dst[2] = {0, mib.xRes};
 
         for (int y = SCREENHEIGHT; y; y--) {
             for (int x = SCREENWIDTH; x; x -= 4) {
@@ -317,7 +322,7 @@ void I_FinishUpdate (void)
         unsigned int *src = (unsigned int *) (screens[0]);
 
         /*start indices into frame buffer, one per row */
-        int dst[3] = {0, pitch, pitch + pitch};
+        int dst[3] = {0, mib.xRes, mib.xRes + mib.xRes};
 
         for (int y = SCREENHEIGHT; y; y--) {
             for (int x = SCREENWIDTH; x; x -= 4) {
@@ -412,28 +417,38 @@ void I_SetPalette (byte* palette)
 
 
 void I_InitGraphics(void) {
-    int width = SCREENWIDTH;
-    int height = SCREENHEIGHT;
-    multiply = 3;
-
-    sel4doom_get_vbe(&mib);
-
-    //some default auto-detection for now
-    //if (mib.xRes == SCREENWIDTH * 2) { multiply = 2; }
-    //if (mib.xRes == SCREENWIDTH * 3) { multiply = 3; }
-    width *= multiply;
-    height *= multiply;
-    pitch = 1024;
-    row_offset = pitch - width + ((multiply - 1) * pitch);
-    printf("seL4: sel4doom_init_graphics: xRes=%d yRes=%d ==> w=%d h=%d multiply=%d\n",
-            mib.xRes, mib.yRes, width, height, multiply);
-
     sel4doom_fb = sel4doom_get_framebuffer_vaddr();
-    assert(sel4doom_fb);
+    if (sel4doom_fb == NULL) {
+         I_Error("No frame buffer");
+    }
 
-
+    // Graphics changes are "collected" in screens[0] and then written out
+    // to the real screen in one go in I_FinishUpdate().
     screens[0] = (unsigned char *) malloc (SCREENWIDTH * SCREENHEIGHT);
     if (screens[0] == NULL) {
         I_Error("Couldn't allocate screen memory");
     }
+
+    sel4doom_get_vbe(&mib);
+    printf("seL4: I_InitGraphics: xRes=%d yRes=%d bpp=%d\n",
+                mib.xRes, mib.yRes, mib.bitsPerPixel);
+
+    // select scaling factor for output (a.k.a. blocky mode)
+    if (M_CheckParm("-2")) {
+        multiply = 2;
+        printf("seL4: I_InitGraphics: -2 option detected\n");
+    } else if (M_CheckParm("-3")) {
+        multiply = 3;
+        printf("seL4: I_InitGraphics: -3 option detected\n");
+    } else if (SCREENWIDTH * 3 <= mib.xRes && SCREENHEIGHT * 3 <= mib.yRes) {
+        multiply = 3;
+    } else if (SCREENWIDTH * 2 <= mib.xRes && SCREENHEIGHT * 2 <= mib.yRes) {
+        multiply = 2;
+    } else {
+        multiply = 1;
+    }
+    printf("seL4: I_InitGraphics: setting multiply=%d\n", multiply);
+
+    //row_offset = mib.xRes - (SCREENWIDTH * multiply) + ((multiply - 1) * mib.xRes);
+    row_offset = multiply * (mib.xRes - SCREENWIDTH);
 }
