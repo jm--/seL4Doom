@@ -12,3 +12,14 @@ menuconfig APP_DOOM
     depends on LIB_SEL4 && LIB_CPIO && (LIB_MUSL_C || LIB_SEL4_C) && LIB_SEL4_PLAT_SUPPORT && LIB_SEL4_VKA && LIB_SEL4_UTILS && LIB_UTILS
     help
         seL4 port of DOOM
+
+    config APP_DOOM_CPIO_FILES_FULL
+        string "List of files to include"
+        default /usr/share/games/doom/doom1.wad
+        depends on APP_DOOM
+        help
+            A (whitespace) separated list of absolute filenames. The files will
+            be included in the image. The list must include at least one IWAD
+            file. (The shareware WAD file should be readily available. It's
+            probably available via the software management system of your
+            favorite Linux distro.)

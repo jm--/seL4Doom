@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <cpio/cpio.h>
 #include <sel4/arch/bootinfo.h>
 #include <allocman/bootstrap.h>
 #include <allocman/vka.h>
@@ -66,6 +67,9 @@ static ps_chardevice_t inputdev;
 /* pointer to base address of (linear) frame buffer */
 typedef void* fb_t;
 static fb_t fb = NULL;
+
+/* files linked in via archive.o */
+extern char _cpio_archive[];
 
 
 //////////////////////////////////////////////////////
@@ -358,6 +362,36 @@ gfx_print_IA32BootInfo(seL4_IA32_BootInfo* bootinfo) {
 }
 
 
+/*
+ * Print the files in the cpio archive.
+ */
+static void
+list_files() {
+    struct cpio_info info;
+    cpio_info(_cpio_archive, &info);
+    printf("The cpio archive contains %d file(s)\n", info.file_count);
+
+    // length of one slot in "buffer" (+1 to include string terminating "\0")
+    int slot_len = info.max_path_sz + 1;
+    size_t size = slot_len * info.file_count;
+    char* buffer = (char*) malloc(size);
+    char** bufv = (char**) malloc(sizeof(char*) * info.file_count);
+    assert(buffer && bufv);
+    // fill with 0s as libcpio does not write "\0" at end of strings
+    memset(buffer, 0, size);
+
+    for (int i = 0; i < info.file_count; i++) {
+        bufv[i] = buffer + slot_len * i;
+    }
+    cpio_ls(_cpio_archive, bufv, info.file_count);
+    for (int i = 0; i < info.file_count; i++) {
+        printf("file %d: [%s]\n", i + 1, bufv[i]);
+    }
+    free(buffer);
+    free(bufv);
+}
+
+
 static void
 *main_continued()
 {
@@ -373,6 +407,8 @@ static void
     init_timers();
     printf("done initializing timers\n");
 
+    list_files();
+
     int argc = 1;
     char* argv[] = {
             "doom",
@@ -383,6 +419,7 @@ static void
     main_ORIGINAL(argc, argv);
     return NULL;
 }
+
 
 int main()
 {
