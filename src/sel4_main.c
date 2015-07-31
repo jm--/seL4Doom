@@ -71,6 +71,11 @@ static fb_t fb = NULL;
 /* files linked in via archive.o */
 extern char _cpio_archive[];
 
+/* IRQHandler cap (with cspace path) */
+static cspacepath_t kb_handler;
+
+/* endpoint cap - waiting for IRQ */
+static vka_object_t kb_ep;
 
 //////////////////////////////////////////////////////
 /*  Types and prototype for keyboard access here are from
@@ -178,11 +183,51 @@ init_timers()
 }
 
 
+// creates IRQHandler cap "handler" for IRQ "irq"
+static void
+get_irqhandler_cap(int irq, cspacepath_t* handler)
+{
+    seL4_CPtr cap;
+    // get a cspace slot
+    UNUSED int err = vka_cspace_alloc(&vka, &cap);
+    assert(err == 0);
+
+    // convert allocated cptr to a cspacepath, for use in
+    // operations such as Untyped_Retype
+    vka_cspace_make_path(&vka, cap, handler);
+
+    // exec seL4_IRQControl_Get(seL4_CapIRQControl, irq, ...)
+    // to get an IRQHandler cap for IRQ "irq"
+    err = simple_get_IRQ_control(&simple, irq, *handler);
+    assert(err == 0);
+}
+
+
 static void
 init_keyboard() {
     ps_chardevice_t *ret;
     ret = ps_cdev_init(PC99_KEYBOARD_PS2, &io_ops, &inputdev);
     assert(ret != NULL);
+
+    // Loop through all IRQs and get the one device needs to listen to
+    // We currently assume there it only needs one IRQ.
+    int irq;
+    for (irq = 0; irq < 256; irq++) {
+        if (ps_cdev_produces_irq(&inputdev, irq)) {
+            break;
+        }
+    }
+
+    //create IRQHandler cap
+    get_irqhandler_cap(irq, &kb_handler);
+
+    // create endpoint
+    UNUSED int err = vka_alloc_async_endpoint(&vka, &kb_ep);
+    assert(err == 0);
+
+    /* Assign AEP to the IRQ handler. */
+    err = seL4_IRQHandler_SetEndpoint(kb_handler.capPtr, kb_ep.cptr);
+    assert(err == 0);
 
     //initialize keyboard state;
     //mirroring platsupport's internal keyboard state; yikes
@@ -392,6 +437,57 @@ list_files() {
 }
 
 
+void
+run_console() {
+    int c;
+    int cmd_len = 200;
+    char cmd[cmd_len];
+    int pos = 0;
+
+    for (;;) {
+        printf("seL4 > ");
+        pos = 0;
+        for (;;) {
+            fflush(stdout);
+            seL4_Wait(kb_ep.cptr, NULL);
+            for (;;) {
+                c = sel4doom_get_getchar();
+                if (c == -1) {
+                    break;
+                }
+                if (c == 13 && pos < cmd_len) {
+                    cmd[pos++] = '\0';
+                    printf ("\n");
+                    break;
+                }
+                if (c == 8) {
+                    if (pos > 0) {
+                        pos--;
+                        printf ("%c %c", c, c);
+                    }
+                } else if (pos < cmd_len) {
+                    printf ("%c",c);
+                    cmd[pos++] = (char)c;
+                }
+            }
+
+            seL4_IRQHandler_Ack(kb_handler.capPtr);
+            if (c == 13) {
+                break;
+            }
+        }
+        if (*cmd == 0) {
+            // empty string; do nothing
+        } else if (strcmp(cmd, "ls") == 0) {
+            list_files();
+        } else if (strcmp(cmd, "doom") == 0) {
+            break;
+        } else {
+            printf("command not found\n");
+        }
+    }
+}
+
 static void
 *main_continued()
 {
@@ -408,6 +504,16 @@ static void
     printf("done initializing timers\n");
 
     list_files();
+
+    for (int i = 0; i < 10 ; i++) {
+        int c = sel4doom_get_getchar();
+        if (c != -1) {
+            printf("CC %d %d\n", i, c);
+            seL4_IRQHandler_Ack(kb_handler.capPtr);
+            run_console();
+            break;
+        }
+    }
 
     int argc = 1;
     char* argv[] = {
