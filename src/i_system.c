@@ -27,8 +27,6 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 #include <stdlib.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include "SDL.h"
-#include "SDL_timer.h"
 
 #include "doomdef.h"
 #include "m_misc.h"
@@ -43,6 +41,7 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 #endif
 #include "i_system.h"
 
+#include "sel4_doom.h"
 
 
 
@@ -98,7 +97,7 @@ byte* I_ZoneBase (int*	size)
 //
 int  I_GetTime (void)
 {
-    return (SDL_GetTicks()*TICRATE)/1000;
+    return sel4doom_get_current_time() * TICRATE / 1000;
 }
 
 
@@ -108,9 +107,6 @@ int  I_GetTime (void)
 //
 void I_Init (void)
 {
-    if ( SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO) < 0 )
-        I_Error("Could not initialize SDL: %s", SDL_GetError());
-
     I_InitSound();
     //  I_InitGraphics();
 }
@@ -130,7 +126,7 @@ void I_Quit (void)
 
 void I_WaitVBL(int count)
 {
-    SDL_Delay((count*1000)/70);
+     /* not implemented -- pause for (count*1000)/70 ms */
 }
 
 void I_BeginRead(void)

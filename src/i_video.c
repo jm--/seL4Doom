@@ -17,17 +17,14 @@
 // $Log:$
 //
 // DESCRIPTION:
-//	DOOM graphics stuff for SDL library
+//	DOOM graphics stuff.
 //
 //-----------------------------------------------------------------------------
 
-static const char
-rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 
 #include <stdlib.h>
 #include <assert.h>
-#include <sel4/arch/bootinfo.h>
-#include "SDL.h"
+
 
 #include "m_swap.h"
 #include "doomstat.h"
@@ -37,11 +34,7 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include "d_main.h"
 
 #include "doomdef.h"
-
-
-void* sel4doom_get_framebuffer_vaddr();
-void sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib);
-int sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
+#include "sel4_doom.h"
 
 
 /* the current color palette in 32bit format as used by frame buffer */
