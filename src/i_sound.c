@@ -26,11 +26,6 @@ rcsid[] = "$Id: i_unix.c,v 1.5 1997/02/03 22:45:10 b1 Exp $";
 
 #include <math.h>
 
-#include "SDL_audio.h"
-#include "SDL_mutex.h"
-#include "SDL_byteorder.h"
-#include "SDL_version.h"
-
 #include "z_zone.h"
 
 #include "m_swap.h"
@@ -42,6 +37,40 @@ rcsid[] = "$Id: i_unix.c,v 1.5 1997/02/03 22:45:10 b1 Exp $";
 
 #include "doomdef.h"
 
+
+// ========================================================
+/*
+ * SDL Declarations and definitions to make this file compile
+ * and the code run, as the goal was to modify only as little
+ * as necessary. If this does not work, then one might has to
+ * take out the audio related code entirely...
+ */
+
+#define SDL_BYTEORDER 1
+#define SDL_BIG_ENDIAN 1
+#define AUDIO_S16MSB 1
+#define AUDIO_S16LSB 1
+
+typedef unsigned char Uint8;
+
+typedef struct SDL_AudioSpec {
+    int freq;
+    int format;
+    int channels;
+    int silence;
+    int samples;
+    int padding;
+    int size;
+    void (*callback)(void *u, unsigned char *s, int len);
+    void  *userdata;
+} SDL_AudioSpec;
+
+void SDL_LockAudio(void) {}
+void SDL_UnlockAudio(void) {}
+int SDL_OpenAudio(SDL_AudioSpec *d, SDL_AudioSpec *o) {return 0;}
+void SDL_PauseAudio(int pause_on) {}
+void SDL_CloseAudio(void) {}
+// ========================================================
 
 // The number of internal mixing channels,
 //  the samples calculated for each mixing step,
