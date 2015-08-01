@@ -77,6 +77,11 @@ static cspacepath_t kb_handler;
 /* endpoint cap - waiting for IRQ */
 static vka_object_t kb_ep;
 
+/* input buffer for console input */
+#define CMDLINE_LEN    1024
+static char cmdline[CMDLINE_LEN];
+
+
 //////////////////////////////////////////////////////
 /*  Types and prototype for keyboard access here are from
  *  keyboard_chardev.c and keyboard_ps2.h in the platsupport library.
@@ -437,56 +442,75 @@ list_files() {
 }
 
 
-void
-run_console() {
-    int c;
-    int cmd_len = 200;
-    char cmd[cmd_len];
-    int pos = 0;
+/*
+ * Read one input string from the keyboard and store it in buf.
+ */
+static void
+readline(char* buf, int buf_len) {
+    int c; // current key char
+    int pos = 0; // index in "buf" where c will be placed
 
     for (;;) {
-        printf("seL4 > ");
-        pos = 0;
+        fflush(stdout);
+        seL4_Wait(kb_ep.cptr, NULL);
+        seL4_IRQHandler_Ack(kb_handler.capPtr);
         for (;;) {
-            fflush(stdout);
-            seL4_Wait(kb_ep.cptr, NULL);
-            for (;;) {
-                c = sel4doom_get_getchar();
-                if (c == -1) {
-                    break;
-                }
-                if (c == 13 && pos < cmd_len) {
-                    cmd[pos++] = '\0';
-                    printf ("\n");
-                    break;
-                }
-                if (c == 8) {
-                    if (pos > 0) {
-                        pos--;
-                        printf ("%c %c", c, c);
-                    }
-                } else if (pos < cmd_len) {
-                    printf ("%c",c);
-                    cmd[pos++] = (char)c;
-                }
-            }
-
-            seL4_IRQHandler_Ack(kb_handler.capPtr);
-            if (c == 13) {
+            c = sel4doom_get_getchar();
+            if (c == -1) {
+                // read till EOF
                 break;
             }
+            if (c == 13 && pos < buf_len) {
+                // enter key
+                buf[pos] = '\0';
+                printf("\n");
+                return; //DONE
+            }
+            if (c == 8) {
+                // backspace key
+                if (pos > 0) {
+                    pos--;
+                    printf("%c %c", c, c);
+                }
+            } else if (pos < buf_len - 1) {
+                // add char to buffer; make sure there's space for final "\0"
+                printf("%c", c);
+                buf[pos++] = (char) c;
+            }
         }
-        if (*cmd == 0) {
+    }
+}
+
+
+/*
+ * A command line console. It works nicely for me when running QEMU with
+ *  "-serial stdio", but there is probably little real world use use for it.
+ *  It's main purpose is to provide a quick way to launch custom WAD files:
+ *  e.g. with "doom -file myfile.wad". Also, every operating system needs
+ *  a console. :)
+ */
+static void
+run_console(int* argc, char* argv[]) {
+    for (;;) {
+        printf("seL4 > ");
+        readline(cmdline, CMDLINE_LEN);
+        /* "parse" command line (simply break at space char) */
+        char* cmd = argv[0] = strtok(cmdline," ");
+        for (*argc = 0; argv[*argc] != NULL;) {
+            argv[++(*argc)] = strtok(NULL," ");
+        }
+        if (cmd == NULL) {
             // empty string; do nothing
         } else if (strcmp(cmd, "ls") == 0) {
             list_files();
         } else if (strcmp(cmd, "doom") == 0) {
-            break;
+            return; // DONE
         } else {
-            printf("command not found\n");
+            printf("%s: command not found\n", cmd);
         }
     }
 }
+
 
 static void
 *main_continued()
@@ -503,25 +527,24 @@ static void
     init_timers();
     printf("done initializing timers\n");
 
+    /* print content of cpio file */
     list_files();
 
+    /* default command line arguments */
+    int argc = 1;
+    char* argv[] = {"./doom", NULL};
+
+    /* boot into console if a key was pressed */
     for (int i = 0; i < 10 ; i++) {
         int c = sel4doom_get_getchar();
         if (c != -1) {
-            printf("CC %d %d\n", i, c);
             seL4_IRQHandler_Ack(kb_handler.capPtr);
-            run_console();
+            run_console(&argc, argv);
             break;
         }
     }
 
-    int argc = 1;
-    char* argv[] = {
-            "doom",
-            NULL
-    };
-
-    /* we never return (I think) */
+    /* we never return */
     main_ORIGINAL(argc, argv);
     return NULL;
 }
