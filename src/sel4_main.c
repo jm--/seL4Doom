@@ -334,86 +334,10 @@ gfx_display_testpic() {
 }
 
 
-uint32_t
-gfx_map_color(uint8_t r, uint8_t g, uint8_t b) {
-    seL4_VBEModeInfoBlock* mib = &bootinfo2->vbeModeInfoBlock;
-    return (r << mib->linRedOff)
-         | (g << mib->linGreenOff)
-         | (b << mib->linBlueOff);
-}
-
-
-static uint32_t*
-get_ppm(const char* filename) {
-
+void*
+sel4doom_load_file(const char* filename) {
     UNUSED unsigned long filesize;
-    void * img = cpio_get_file(_cpio_archive, filename, &filesize);
-    assert(img);
-
-    int imgx = 0;  // image width (in pixel)
-    int imgy = 0;  // image height
-    //we do not handle comments in the header
-    int n = sscanf(img, "P6\n%d %d\n255\n", &imgx, &imgy);
-    assert (n == 2 && imgx > 0 && imgy > 0);
-
-    // find first pixel; header and data are separated by "\n255\n"
-    uint8_t* src = (uint8_t*) strstr(img, "\n255\n");
-    assert(src);
-    // skip over separator
-    src += 5;
-    uint32_t* cache = malloc (imgx * imgy * 4 + 2 * 4);
-    cache[0] = imgx;
-    cache[1] = imgy;
-    uint32_t* dst = cache + 2;
-
-    for (int y = 0; y < imgy; y++) {
-        for (int x = 0; x < imgx; x++) {
-            uint8_t r = *src++;
-            uint8_t g = *src++;
-            uint8_t b = *src++;
-//            if (r > 220 && g > 220 && b > 220) {
-//                r = g = b = 0;
-//            }
-            *dst++ = gfx_map_color(r, g, b);
-        }
-    }
-    return cache;
-}
-
-void
-sel4doom_diplay_ppm(uint32_t* screen, uint32_t startx, uint32_t starty,
-        uint32_t xRes, int imgId) {
-
-    static uint32_t* img_cache[] = {NULL, NULL};
-    static char*     img_name[]   = {"sel4logo.ppm", "psulogo.ppm"};
-    static const  float alpha1 = 0.5;
-    static const  float alpha2 = 0.5;
-
-
-    assert(imgId == 0 || imgId == 1);
-
-    uint32_t* img = img_cache[imgId];
-    if (img == NULL) {
-        img = img_cache[imgId] = get_ppm(img_name[imgId]);
-    }
-    uint32_t imgx = *(img++);
-    uint32_t imgy = *(img++);
-
-    for (int y = 0; y < imgy; y++) {
-        uint32_t* dst = screen + (starty + y) * xRes + startx;
-        for (int x = 0; x < imgx; x++) {
-            //if (!((*img & 0xFF0000 >> 16) > 220 &&  (*img & 0xFF00 >> 8) > 220 && (*img & 0xFF >> 0) > 220)) {
-            uint8_t r = ((*dst & 0xFF0000) >> 16) * alpha1 + ((*img & 0xFF0000) >> 16) * alpha2;
-            uint8_t g = ((*dst & 0xFF00) >> 8) * alpha1 + ((*img & 0xFF00) >> 8) *alpha2;
-            uint8_t b = ((*dst & 0xFF) >> 0) *alpha1 + ((*img & 0xFF) >> 0) *alpha2;
-            *dst = gfx_map_color(r, g, b);
-            //}
-            dst++;
-            img++;
-            //*dst++ = *(img++);
-        }
-    }
-
+    return cpio_get_file(_cpio_archive, filename, &filesize);
 }
 
 

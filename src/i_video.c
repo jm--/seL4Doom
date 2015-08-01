@@ -40,6 +40,9 @@
 /* the current color palette in 32bit format as used by frame buffer */
 static uint32_t sel4doom_colors32[256];
 
+/* the current color table: one byte for red, one for green, one for blue */
+static uint8_t sel4doom_colors[256][3];
+
 /* VBE mode info */
 static seL4_VBEModeInfoBlock mib;
 
@@ -71,6 +74,100 @@ sel4doom_clear_screen() {
     const size_t size = mib.yRes * mib.linBytesPerScanLine;
     for (int i = 0; i < size / 4; i++) {
         sel4doom_fb[i] = 0;
+    }
+}
+
+/*
+ * Load and preprocess a ppm image.
+ */
+static uint8_t*
+sel4doom_get_ppm(int imgId) {
+    char filename[20];
+    sprintf(filename, "logo%d.ppm", imgId);
+    void * img = sel4doom_load_file(filename);
+    assert(img);
+
+    int imgx = 0;  // image width (in pixel)
+    int imgy = 0;  // image height
+    //we do not handle comments in the header
+    int n = sscanf(img, "P6\n%d %d\n255\n", &imgx, &imgy);
+    assert (n == 2 && 0 < imgx && imgx < 256 && 0 < imgy && imgy < 256);
+    //assert (n == 2 && imgx > 0 && imgy > 0);
+
+    // find first pixel; header and data are separated by "\n255\n"
+    uint8_t* src = (uint8_t*) strstr(img, "\n255\n");
+    assert(src);
+    // skip over separator
+    src += 5;
+    uint8_t* cache = malloc (imgx * imgy + 2);
+    cache[0] = imgx;
+    cache[1] = imgy;
+    uint8_t* dst = cache + 2;
+
+    for (int y = 0; y < imgy; y++) {
+        for (int x = 0; x < imgx; x++) {
+            uint8_t r = *src++;
+            uint8_t g = *src++;
+            uint8_t b = *src++;
+
+            if (r > 220 && g > 220 && b > 220) {
+                // treat this pixel as transparent; it will not be displayed
+                *dst++ = 255;
+            } else {
+                // find closest matching color (think 3d color space)
+                int minidx = 0;
+                int mindist = 0;
+                for (int i = 0; i < 256; i++) {
+                    int dist = abs(r - sel4doom_colors[i][0])
+                             + abs(g - sel4doom_colors[i][1])
+                             + abs(b - sel4doom_colors[i][2]);
+                    if (i == 0 || dist < mindist) {
+                        minidx = i;
+                        mindist = dist;
+                    }
+                }
+                *dst++ = minidx;
+            }
+        }
+    }
+    return cache;
+}
+
+
+/*
+ * Display a ppm image file at upper right corner of output screen.
+ */
+static void
+sel4doom_diplay_ppm (int imgId) {
+    static uint8_t* img_cache[] = {NULL, NULL};
+    assert(imgId == 0 || imgId == 1);
+
+    /* load image if not in cache */
+    uint8_t* img = img_cache[imgId];
+    if (img == NULL) {
+        img = img_cache[imgId] = sel4doom_get_ppm(imgId);
+    }
+    /* width and height of the image */
+    uint32_t imgx = *(img++);
+    uint32_t imgy = *(img++);
+    /* we don't write directly to the frame buffer but to screens[0] */
+    uint8_t* screen = screens[0];
+    /* the location in screens[0] where image will appear */
+    uint32_t startx = SCREENWIDTH - imgx;
+    uint32_t starty = 0;
+
+    /* The code here may be sub-optimal as we only copy one byte at the time,
+     * but the code is not expected to be active anyway...
+     */
+    for (int y = 0; y < imgy; y++) {
+        uint8_t* dst = screen + (starty + y) * SCREENWIDTH + startx;
+        /* copy one row */
+        for (int x = 0; x < imgx; x++, dst++, img++) {
+            /* skip of the pixels marked transparent */
+            if (*img != 255) {
+                *dst = *img;
+            }
+        }
     }
 }
 
@@ -411,11 +508,17 @@ void I_ReadScreen (byte* scr)
 //
 void I_SetPalette (byte* palette)
 {
-    for (int i = 0; i < 256; i++, palette += 3) {
+    for (int i = 0; i < 256; i++) {
+        byte r = gammatable[usegamma][*palette++];
+        byte g = gammatable[usegamma][*palette++];
+        byte b = gammatable[usegamma][*palette++];
+        sel4doom_colors[i][0] = r;
+        sel4doom_colors[i][1] = g;
+        sel4doom_colors[i][2] = b;
         sel4doom_colors32[i] =
-                      (gammatable[usegamma][*palette] << mib.linRedOff)
-                    | (gammatable[usegamma][*(palette + 1)] << mib.linGreenOff)
-                    | (gammatable[usegamma][*(palette + 2)] << mib.linBlueOff);
+                      (r << mib.linRedOff)
+                    | (g << mib.linGreenOff)
+                    | (b << mib.linBlueOff);
     }
 }
 
