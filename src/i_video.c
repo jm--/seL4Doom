@@ -239,6 +239,12 @@ sel4doom_poll_event(event_t* event) {
     case 18: // left alt
         event->data1 = KEY_RALT;
         return 1;
+    case 188: // ',' key
+        event->data1 = 44; // ascii code of ',' (default key for strafe left)
+        return 1;
+    case 190: // '.' key
+        event->data1 = 46; // ascii code of '.' (default key for strafe right)
+        return 1;
     case 112:
         event->data1 = KEY_F1;
         return 1;
