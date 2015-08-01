@@ -438,7 +438,10 @@ void I_InitGraphics(void) {
                 mib.xRes, mib.yRes, mib.bitsPerPixel);
 
     // select scaling factor for output (a.k.a. blocky mode)
-    if (M_CheckParm("-2")) {
+    if (M_CheckParm("-1")) {
+        multiply = 1;
+        printf("seL4: I_InitGraphics: -1 option detected\n");
+    } else if (M_CheckParm("-2")) {
         multiply = 2;
         printf("seL4: I_InitGraphics: -2 option detected\n");
     } else if (M_CheckParm("-3")) {
