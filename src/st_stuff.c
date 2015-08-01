@@ -60,7 +60,7 @@ rcsid[] = "$Id: st_stuff.c,v 1.6 1997/02/03 22:45:13 b1 Exp $";
 // Data.
 #include "dstrings.h"
 #include "sounds.h"
-
+#include "sel4_doom.h"
 //
 // STATUS BAR DATA
 //
@@ -463,6 +463,19 @@ unsigned char	cheat_mypos_seq[] =
 }; 
 
 
+/* see cheat_xlate_table for key code mappings */
+unsigned char	cheat_sel4_showlogo0_seq[] =
+{
+    0xea, 0xa6, 0x36, 0x2c, 0xff  // sel4
+};
+
+
+unsigned char	cheat_sel4_showlogo1_seq[] =
+{
+    0x2a, 0xea, 0xae, 0xff  // psu (Portland State University)
+};
+
+
 // Now what?
 cheatseq_t	cheat_mus = { cheat_mus_seq, 0 };
 cheatseq_t	cheat_god = { cheat_god_seq, 0 };
@@ -485,8 +498,8 @@ cheatseq_t	cheat_powerup[7] =
 cheatseq_t	cheat_choppers = { cheat_choppers_seq, 0 };
 cheatseq_t	cheat_clev = { cheat_clev_seq, 0 };
 cheatseq_t	cheat_mypos = { cheat_mypos_seq, 0 };
-
-
+cheatseq_t	cheat_sel4_showlogo0 = { cheat_sel4_showlogo0_seq, 0 };
+cheatseq_t	cheat_sel4_showlogo1 = { cheat_sel4_showlogo1_seq, 0 };
 // 
 extern char*	mapnames[];
 
@@ -719,7 +732,13 @@ ST_Responder (event_t* ev)
       // So be it.
       plyr->message = STSTR_CLEV;
       G_DeferedInitNew(gameskill, epsd, map);
-    }    
+    } else if (cht_CheckCheat(&cheat_sel4_showlogo0, ev->data1))
+    {
+        sel4doom_set_image(0);
+    } else if (cht_CheckCheat(&cheat_sel4_showlogo1, ev->data1))
+    {
+        sel4doom_set_image(1);
+    }
   }
   return false;
 }

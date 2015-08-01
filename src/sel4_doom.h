@@ -32,4 +32,8 @@ sel4doom_get_current_time();
 void*
 sel4doom_load_file(const char* filename);
 
+
+void
+sel4doom_set_image(int imgId);
+
 #endif /* SEL4_DOOM_H_ */

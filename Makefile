@@ -28,7 +28,7 @@ CFLAGS += -ggdb -g3 -I$(SOURCE_DIR)/src/SDL -DIPPORT_USERRESERVED=5000
 include $(SEL4_COMMON)/common.mk
 
 # whitespace separated list of relative filenames to include
-CPIO_FILES :=
+CPIO_FILES := logo0.ppm logo1.ppm
 CPIO_FILES_FULL := $(addprefix $(SOURCE_DIR)/, $(CPIO_FILES))
 
 # list absolute files to include

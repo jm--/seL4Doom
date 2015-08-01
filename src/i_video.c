@@ -49,6 +49,8 @@ static seL4_VBEModeInfoBlock mib;
 /* base address of frame buffer (virtual address) */
 static uint32_t* sel4doom_fb = NULL;
 
+/* current ID of image displayed during game play; -1 = no image */
+static int sel4doom_imgId = -1;
 
 /* This version of DOOM uses 320 pixels per row. Because of "blocky" mode
  * (multiply * 320) pixels are displayed per row. The number of pixels on the real
@@ -168,6 +170,19 @@ sel4doom_diplay_ppm (int imgId) {
                 *dst = *img;
             }
         }
+    }
+}
+
+
+/*
+ * Set / unset ID of currently displayed image.
+ */
+void
+sel4doom_set_image(int imgId) {
+    if (sel4doom_imgId == imgId) {
+        sel4doom_imgId = -1;
+    } else {
+        sel4doom_imgId = imgId;
     }
 }
 
@@ -342,6 +357,9 @@ void I_FinishUpdate (void)
         for ( ; i<20*2 ; i+=2) {
             screens[0][ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0x0;
         }
+    }
+    if (sel4doom_imgId != -1) {
+        sel4doom_diplay_ppm(sel4doom_imgId);
     }
     // ------------------------
     if (multiply == 1)
