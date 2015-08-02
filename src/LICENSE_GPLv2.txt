@@ -1,22 +1,18 @@
-SeL4Doom is a software port of DOOM, the classic game by id software. It is
-based on SDL Doom 1.10, which was written by Sam Lantinga in 1998. SDL Doom
-in turn is a port of Linux Doom v1.10, which was originally released by
-id software under the Doom Source License (1997) but later re-issued under
-the GNU General Public License (1999).
 
-See file README.SDL for some information about SDL Doom. See file DOOMLIC.TXT
-for details about the Doom Source License. Note that while SDL Doom depends
-on the SDL library, seL4Doom does not. (The SDL library version 1.2 is
-released under the GNU Lesser General Public License Version 2.1.)
+Files described as being under the "GNU General Public License version 2"
+or simply the "GPLv2" fall under the following license.
 
-The seL4 userland tools and libraries (not part of this distribution) are
-(mostly) released under the BSD license. See file LICENSE_BSD2.txt for
-details. The seL4 microkernel (not included in this distribution) is
-released under GPL Version 2. See file LICENSE_GPLv2.txt for details.
+Note that this copyright does not cover user programs that use kernel
+services by normal system calls --- this is merely considered normal use
+of the kernel, and does not fall under the heading of "derived work".
 
-The code in this distribution specific to seL4; that is, the start-up
-code to launch and play DOOM on seL4, is copyright (c) 2015, Josef Mihalits.
-It is distributed under the terms of the GNU General Public License.
+Also note that while the Free Software Foundation owns the copyright to
+the license text below, copyright for the actual files included in this
+project are held by their respective owners, indicated at the top of
+each file.
+
+
+-----------------------------------------------------------------------
 
                     GNU GENERAL PUBLIC LICENSE
                        Version 2, June 1991
