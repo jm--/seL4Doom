@@ -210,9 +210,20 @@ get_irqhandler_cap(int irq, cspacepath_t* handler)
 
 static void
 init_keyboard() {
+    int n = 0;
     ps_chardevice_t *ret;
-    ret = ps_cdev_init(PC99_KEYBOARD_PS2, &io_ops, &inputdev);
-    assert(ret != NULL);
+    do {
+        ret = ps_cdev_init(PC99_KEYBOARD_PS2, &io_ops, &inputdev);
+        // The code to initialize the keyboard in platsupport
+        // does not return PS2_CONTROLLER_SELF_TEST_OK when a key is pressed
+        // before or during initialization or something?
+        if (n++ == 100) {
+            // We retry a couple of times before giving up. This gives the
+            // user a chance to release a pressed key.
+            printf("Failed to initialize PS2 keyboard.\n");
+            exit(EXIT_FAILURE);
+        }
+    } while (ret == NULL);
 
     // Loop through all IRQs and get the one device needs to listen to
     // We currently assume there it only needs one IRQ.
@@ -525,11 +536,22 @@ static void
     printf("initializing keyboard\n");
     init_keyboard();
 
+    printf("initializing graphics\n");
     gfx_print_IA32BootInfo(bootinfo2);
+    if (bootinfo2 == NULL
+    || bootinfo2->vbeModeInfoBlock.xRes < 320
+    || bootinfo2->vbeModeInfoBlock.yRes < 200
+    || bootinfo2->vbeModeInfoBlock.bitsPerPixel != 32) {
+        /* DOOM is 320x200, but any resolution should work */
+        printf("Error: minimum graphics requirements not met\n");
+        printf("Please boot the kernel in graphics mode ");
+        printf("with a color depth of 32 bpp!\n\n");
+        exit(EXIT_FAILURE);
+    }
     gfx_map_video_ram(&io_ops.io_mapper);
     gfx_display_testpic();
 
-    printf("initializing timers\n");
+    printf("initializing timers (you may see some errors or warnings)\n");
     fflush(stdout);
     init_timers();
     printf("done initializing timers\n");
