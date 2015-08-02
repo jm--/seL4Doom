@@ -561,7 +561,7 @@ static void
 
     /* default command line arguments */
     int argc = 1;
-    char* argv[] = {"./doom", NULL};
+    char* argv[CMDLINE_LEN / 2] = {"./doom", NULL};
 
     /* boot into console if a key was pressed */
     for (int i = 0; i < 10 ; i++) {
