@@ -23,7 +23,7 @@ LIBS = c cpio sel4 sel4muslcsys sel4vka sel4allocman \
 
 # extra flags
 # (IPPORT_USERRESERVED is not used and only defined to make program compile)
-CFLAGS += -ggdb -g3 -I$(SOURCE_DIR)/src/SDL -DIPPORT_USERRESERVED=5000
+CFLAGS += -ggdb -g3 -DIPPORT_USERRESERVED=5000
 
 include $(SEL4_COMMON)/common.mk
 
