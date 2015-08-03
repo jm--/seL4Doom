@@ -10,6 +10,7 @@
 #ifndef SEL4_DOOM_H_
 #define SEL4_DOOM_H_
 
+#include <stdint.h>
 #include <sel4/arch/bootinfo.h>
 
 
