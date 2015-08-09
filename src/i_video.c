@@ -217,6 +217,11 @@ sel4doom_poll_event(event_t* event) {
         case 0x18: //right alt
             event->data1 = KEY_RALT;
             return 1;
+        case 0x2c: // print screen key
+            // We filter out this event (by returning 0).
+            // At least in VirtualBox, every cursor key event is accompanied
+            // by this key event.
+            return 0;
         default:
             //this default mapping may not be correct?
             event->data1 = vkey;
