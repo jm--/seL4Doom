@@ -200,7 +200,7 @@ keycode_init(keycode_state_t *s,
     s->handle_led_state_changed_callback = handle_led_state_changed_callback;
 }
 
-#if KEYBOARD_KEY_DEBUG
+#ifdef KEYBOARD_KEY_DEBUG
 const char*
 keycode_vkey_desc(uint16_t vk)
 {

@@ -23,7 +23,7 @@ sel4doom_get_vbe(seL4_VBEModeInfoBlock* mib);
 
 
 int
-sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode);
+sel4doom_keyboard_poll_keyevent(int16_t* vkey);
 
 
 unsigned int

@@ -12,6 +12,7 @@ ENTRY_POINT := _sel4_start
 
 # required source files
 CFILES   := $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/*.c))
+CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/sel4.local/libplatsupport/*.c))
 
 # CPIO archive
 OFILES := archive.o

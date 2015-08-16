@@ -11,7 +11,7 @@
 #ifndef _PLATSUPPORT_PLAT_KEYBOARD_PS2_DRIVER_H
 #define _PLATSUPPORT_PLAT_KEYBOARD_PS2_DRIVER_H
 
-#include "../../chardev.h"
+#include "chardev.h"
 
 #define KEYBOARD_PS2_IRQ 1
 #define PS2_IOPORT_CONTROL 0x64

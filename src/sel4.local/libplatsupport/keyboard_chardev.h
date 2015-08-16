@@ -11,9 +11,12 @@
 #ifndef _PLATSUPPORT_PLAT_KEYBOARD_PS2_CHARDEV_H
 #define _PLATSUPPORT_PLAT_KEYBOARD_PS2_CHARDEV_H
 
-#include "../../chardev.h"
+#include "chardev.h"
 #include "keyboard_ps2.h"
 #include "keyboard_vkey.h"
+
+int
+keyboard_poll_keyevent(int16_t* vkey);
 
 int
 keyboard_cdev_init(const struct dev_defn* defn, const ps_io_ops_t* ops, ps_chardevice_t* dev);

@@ -23,6 +23,8 @@
 #include <sel4utils/vspace.h>
 #include <sel4utils/stack.h>
 #include <simple-stable/simple-stable.h>
+#include "sel4.local/libplatsupport/keyboard_ps2.h"
+#include "sel4.local/libplatsupport/keyboard_chardev.h"
 
 int main_ORIGINAL(int argc, char** argv);
 
@@ -80,41 +82,6 @@ static vka_object_t kb_ep;
 /* input buffer for console input */
 #define CMDLINE_LEN    1024
 static char cmdline[CMDLINE_LEN];
-
-
-//////////////////////////////////////////////////////
-/*  Types and prototype for keyboard access here are from
- *  keyboard_chardev.c and keyboard_ps2.h in the platsupport library.
- *  I guess one is not supposed to use them directly...
- */
-
-#define KEYBOARD_PS2_STATE_NORMAL 0x1
-//#define KEYBOARD_PS2_STATE_IGNORE 0x2
-#define KEYBOARD_PS2_STATE_EXTENDED_MODE 0x4
-#define KEYBOARD_PS2_STATE_RELEASE_KEY 0x8
-//#define KEYBOARD_PS2_EVENTCODE_RELEASE 0xF0
-//#define KEYBOARD_PS2_EVENTCODE_EXTENDED 0xE0
-//#define KEYBOARD_PS2_EVENTCODE_EXTENDED_PAUSE 0xE1
-
-typedef struct keyboard_key_event {
-    int16_t vkey;
-    bool pressed;
-} keyboard_key_event_t;
-
-struct keyboard_state {
-    ps_io_ops_t ops;
-    int state;
-    int num_ignore;
-    void (*handle_event_callback)(keyboard_key_event_t ev, void *cookie);
-};
-
-/* keyboard state */
-static struct keyboard_state kb_state;
-
-/* prototype of platsupport internal function */
-keyboard_key_event_t keyboard_poll_ps2_keyevent(struct keyboard_state *state);
-
-//////////////////////////////////////////////////////
 
 
 // ======================================================================
@@ -210,10 +177,19 @@ get_irqhandler_cap(int irq, cspacepath_t* handler)
 
 static void
 init_keyboard() {
+    static const int keyboard_irqs[] = {KEYBOARD_PS2_IRQ, -1};
+    static const struct dev_defn keyboard_def = {
+            .id      = PC99_KEYBOARD_PS2,
+            .paddr   = 0,
+            .size    = 0,
+            .irqs    = keyboard_irqs,
+            .init_fn = &keyboard_cdev_init
+    };
     int n = 0;
-    ps_chardevice_t *ret;
+    int err = 0;
     do {
-        ret = ps_cdev_init(PC99_KEYBOARD_PS2, &io_ops, &inputdev);
+        //call into local platsuppport code
+        err = keyboard_cdev_init(&keyboard_def, &io_ops, &inputdev);
         // The code to initialize the keyboard in platsupport
         // does not return PS2_CONTROLLER_SELF_TEST_OK when a key is pressed
         // before or during initialization or something?
@@ -223,7 +199,7 @@ init_keyboard() {
             printf("Failed to initialize PS2 keyboard.\n");
             exit(EXIT_FAILURE);
         }
-    } while (ret == NULL);
+    } while (err);
 
     // Loop through all IRQs and get the one device needs to listen to
     // We currently assume there it only needs one IRQ.
@@ -238,19 +214,12 @@ init_keyboard() {
     get_irqhandler_cap(irq, &kb_handler);
 
     // create endpoint
-    UNUSED int err = vka_alloc_async_endpoint(&vka, &kb_ep);
+    err = vka_alloc_async_endpoint(&vka, &kb_ep);
     assert(err == 0);
 
     /* Assign AEP to the IRQ handler. */
     err = seL4_IRQHandler_SetEndpoint(kb_handler.capPtr, kb_ep.cptr);
     assert(err == 0);
-
-    //initialize keyboard state;
-    //mirroring platsupport's internal keyboard state; yikes
-    kb_state.state = KEYBOARD_PS2_STATE_NORMAL;
-    kb_state.ops = io_ops;   // keyboard.dev.ioops
-    kb_state.num_ignore = 0;
-    kb_state.handle_event_callback = NULL;
 }
 
 
@@ -260,35 +229,9 @@ sel4doom_get_getchar() {
 }
 
 
-/* At the time of writing (July 2015), there seems to be a bug in
- * keyboard_state_push_ps2_keyevent(), which results in extmode not working.
- * Parameter ps2_keyevent should be uint16_t and not int16_t, I think.
- * (I'll review again and file an issue on github if necessary.)
- *
- * I still have to read-up on keyboard scan codes and related things...
- * Hacked this together to make it work for now.
- */
 int
-sel4doom_get_kb_state(int16_t* vkey, int16_t* extmode) {
-    keyboard_key_event_t ev = keyboard_poll_ps2_keyevent(&kb_state);
-    *extmode = kb_state.state & KEYBOARD_PS2_STATE_EXTENDED_MODE;
-
-    if (*extmode) {
-        assert(ev.vkey == -1 && ev.pressed  == 0);
-        ev= keyboard_poll_ps2_keyevent(&kb_state);
-    }
-
-    if (*extmode &&  (kb_state.state & KEYBOARD_PS2_STATE_RELEASE_KEY)) {
-        ev= keyboard_poll_ps2_keyevent(&kb_state);
-    }
-#ifdef SEL4DOOM_DEBUG
-    if (ev.vkey != -1) {
-        printf("key %s: extmode=%d vkey=%d=0x%x\n",
-                ev.pressed ? "DOWN":"UP  ", (*extmode > 0), ev.vkey, ev.vkey);
-    }
-#endif
-    *vkey = ev.vkey;
-    return ev.pressed;
+sel4doom_keyboard_poll_keyevent(int16_t* vkey) {
+    return keyboard_poll_keyevent(vkey);
 }
 
 

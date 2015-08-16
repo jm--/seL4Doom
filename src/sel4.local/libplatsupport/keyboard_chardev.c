@@ -17,6 +17,21 @@
 static struct keyboard_state kb_state;
 static keycode_state_t kc_state;
 
+int
+keyboard_poll_keyevent(int16_t* vkey)
+{
+    keyboard_key_event_t ev = keyboard_poll_ps2_keyevent(&kb_state);
+#ifdef KEYBOARD_KEY_DEBUG
+    if (ev.vkey != -1) {
+        printf("key %s: %s vkey=%d=0x%x\n"
+                , ev.pressed ? "DOWN":"UP  ", keycode_vkey_desc(ev.vkey)
+                , ev.vkey, ev.vkey);
+    }
+#endif
+    *vkey = ev.vkey;
+    return ev.pressed;
+}
+
 void
 keyboard_cdev_handle_led_changed(void *cookie)
 {

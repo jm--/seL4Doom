@@ -17,8 +17,6 @@
 #define VK_MAX_ENUM 0xFF
 #define PS2_MAX_KEYCODES_BASIC 0xFF
 
-#define KEYBOARD_KEY_DEBUG false
-
 typedef struct keycode_info {
     int16_t ch;
     int16_t uppercase;
@@ -339,7 +337,7 @@ void keycode_init(
     void (*handle_led_state_changed_callback)(void *cookie)
 );
 
-#if KEYBOARD_KEY_DEBUG
+#ifdef KEYBOARD_KEY_DEBUG
 const char* keycode_vkey_desc(uint16_t vk);
 #endif
 

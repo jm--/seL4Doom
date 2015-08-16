@@ -190,8 +190,7 @@ sel4doom_set_image(int imgId) {
 static int
 sel4doom_poll_event(event_t* event) {
     int16_t vkey;
-    int16_t extmode;
-    int pressed = sel4doom_get_kb_state(&vkey, &extmode);
+    int pressed = sel4doom_keyboard_poll_keyevent(&vkey);
     if (vkey == -1) {
         //no pending events
         return 0;
@@ -199,42 +198,33 @@ sel4doom_poll_event(event_t* event) {
 
     event->type = pressed ? ev_keydown : ev_keyup;
 
-    if (extmode) {
-        //cursor keys
-        switch(vkey) {
-        case 0x25:
-            event->data1 = KEY_LEFTARROW;
-            return 1;
-        case 0x26:
-            event->data1 = KEY_UPARROW;
-            return 1;
-        case 0x27:
-            event->data1 = KEY_RIGHTARROW;
-            return 1;
-        case 0x28:
-            event->data1 = KEY_DOWNARROW;
-            return 1;
-        case 0x18: //right alt
-            event->data1 = KEY_RALT;
-            return 1;
-        case 0x2c: // print screen key
-            // We filter out this event (by returning 0).
-            // At least in VirtualBox, every cursor key event is accompanied
-            // by this key event.
-            return 0;
-        default:
-            //this default mapping may not be correct?
-            event->data1 = vkey;
-            return 1;
-        }
-        assert(!"we shouldn't be here");
-    }
-
     switch(vkey) {
+    case 0x25:
+        event->data1 = KEY_LEFTARROW;
+        return 1;
+    case 0x26:
+        event->data1 = KEY_UPARROW;
+        return 1;
+    case 0x27:
+        event->data1 = KEY_RIGHTARROW;
+        return 1;
+    case 0x28:
+        event->data1 = KEY_DOWNARROW;
+        return 1;
+    case 0x18: //right alt
+        event->data1 = KEY_RALT;
+        return 1;
+    case 0x2c: // print screen key
+        // Hack: We filter out this event (by returning 0).
+        // At least in VirtualBox, every cursor key event is accompanied
+        // by this key event.
+        return 0;
     case 8:
         event->data1 = KEY_BACKSPACE;
         return 1;
     case 160: //left shift
+        event->data1 = KEY_RSHIFT;
+        return 1;
     case 161: //right shift
         event->data1 = KEY_RSHIFT;
         return 1;
