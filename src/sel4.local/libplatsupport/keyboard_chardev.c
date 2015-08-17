@@ -17,6 +17,13 @@
 static struct keyboard_state kb_state;
 static keycode_state_t kc_state;
 
+
+void
+keyboard_set_scanset(int scanset)
+{
+    kb_state.scanset = scanset;
+}
+
 int
 keyboard_poll_keyevent(int16_t* vkey)
 {

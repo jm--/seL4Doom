@@ -63,12 +63,17 @@ struct keyboard_state {
     ps_io_ops_t ops;
     int state;
     int num_ignore;
+    int scanset;
 
     /* Callback function which gets called when there is a keyboard key event. */
     void (*handle_event_callback)(keyboard_key_event_t ev, void *cookie);
 };
 
 /* ---------------------------------------------------------------------------------------------- */
+
+
+void keyboard_flush(ps_io_ops_t *ops);
+int keyboard_detect_scanset(ps_io_ops_t *ops);
 
 /* Initialise keyboard driver state.
    The handle_event_callback parameter is optional, and may be set to NULL. Events are be

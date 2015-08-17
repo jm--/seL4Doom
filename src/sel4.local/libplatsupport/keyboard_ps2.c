@@ -80,10 +80,14 @@ ps2_send_keyboard_cmd_param(ps_io_ops_t *ops, uint8_t cmd, uint8_t param)
 }
 
 /* ---------------------------------------------------------------------------------------------- */
-
+/*
+ * Code for scanset 1 cannot handle "print screen" key or similar keys
+ * that is, keys that start with 0xE0 but then have more than one code following
+ */
 static keyboard_key_event_t
 keyboard_state_push_ps2_keyevent(struct keyboard_state *s, uint16_t ps2_keyevent)
 {
+    assert(s->scanset == 1 || s->scanset == 2);
     keyboard_key_event_t ev_none = { .vkey = -1, .pressed = false };
 
     if (s->state == KEYBOARD_PS2_STATE_IGNORE) {
@@ -99,14 +103,21 @@ keyboard_state_push_ps2_keyevent(struct keyboard_state *s, uint16_t ps2_keyevent
     /* Handle release / extended mode keys. */
     switch (ps2_keyevent) {
     case KEYBOARD_PS2_EVENTCODE_RELEASE:
+        if (s->scanset == 2) {
         s->state |= KEYBOARD_PS2_STATE_RELEASE_KEY;
         return ev_none;
+        }
+        break;
     case KEYBOARD_PS2_EVENTCODE_EXTENDED:
         s->state |= KEYBOARD_PS2_STATE_EXTENDED_MODE;
         return ev_none;
     case KEYBOARD_PS2_EVENTCODE_EXTENDED_PAUSE:
         s->state = KEYBOARD_PS2_STATE_IGNORE;
+        if (s->scanset == 2) {
         s->num_ignore = 7; /* Ignore the next 7 characters of pause seq. */
+        } else {
+            s->num_ignore = 5; /* Ignore the next 5 characters of pause seq. */
+        }
         keyboard_key_event_t ev = { .vkey = VK_PAUSE, .pressed = true };
         return ev;
     }
@@ -117,25 +128,36 @@ keyboard_state_push_ps2_keyevent(struct keyboard_state *s, uint16_t ps2_keyevent
         s->state &= ~KEYBOARD_PS2_STATE_EXTENDED_MODE;
     }
 
-    int16_t vkey = keycode_ps2_to_vkey(ps2_keyevent);
+    int16_t vkey;
+    int pressed;
+    if (s->scanset == 1) {
+        pressed = (0 == (ps2_keyevent & 0x80));
+        ps2_keyevent &= (~0x80);
+        vkey = keycode_ps2_to_vkey_set1(ps2_keyevent);
+    } else {
+        pressed = true;
+        vkey = keycode_ps2_to_vkey_set2(ps2_keyevent);
+    }
+
     if (vkey < 0) {
         /* No associated vkey with this PS2 key. */
         s->state = KEYBOARD_PS2_STATE_NORMAL;
         return ev_none;
     }
 
+    if (s->scanset == 2) {
     /* Set keystate according to press or release. */
     if (s->state & KEYBOARD_PS2_STATE_RELEASE_KEY) {
         /* Release event. */
-        keyboard_key_event_t ev = { .vkey = vkey, .pressed = false };
+            pressed = false;
         s->state &= ~KEYBOARD_PS2_STATE_RELEASE_KEY;
-        return ev;
+        }
     }
 
-    /* Press event. */
-    keyboard_key_event_t ev = { .vkey = vkey, .pressed = true };
+    keyboard_key_event_t ev = { .vkey = vkey, .pressed = pressed };
     return ev;
 }
+
 
 /* ---------------------------------------------------------------------------------------------- */
 
@@ -148,6 +170,7 @@ keyboard_init(struct keyboard_state *state, const ps_io_ops_t* ops,
 
     state->state = KEYBOARD_PS2_STATE_NORMAL;
     state->ops = *ops;
+    state->scanset = 2;
     state->handle_event_callback = handle_event_callback;
 
     /* Initialise the PS2 keyboard device. */
@@ -251,4 +274,57 @@ keyboard_poll_ps2_keyevents(struct keyboard_state *state, void *cookie)
             state->handle_event_callback(ev, cookie);
         }
     } while (ev.vkey != -1);
+}
+
+/*
+ * Consider race condition: e.g. (1) you submit a keyboard command, (2) you
+ * call keyboard_flush(); (3) ACK from step 1 gets written to buffer; so the
+ * result is you called flush but buffer is not empty
+ */
+void
+keyboard_flush(ps_io_ops_t *ops)
+{
+     for (;;) {
+#ifdef KEYBOARD_KEY_DEBUG
+        printf("keyboard_flush() control=%x, \n", ps2_read_control_status(ops));
+#endif
+        if (0 == (ps2_read_control_status(ops) & 0x1)) {
+            break;
+        }
+        UNUSED uint8_t c = ps2_read_data(ops);
+#ifdef KEYBOARD_KEY_DEBUG
+        printf("keyboard_flush %x\n", c);
+#endif
+    }
+}
+
+int
+keyboard_detect_scanset(ps_io_ops_t *ops)
+{
+    uint8_t c1;
+    /* skip over some "special bytes" */
+    do {
+        c1 = ps2_read_output(ops);
+#ifdef KEYBOARD_KEY_DEBUG
+        printf("keyboard_detect_scanset() flush: %x\n", c1);
+#endif
+    } while (c1 >= KEYBOARD_ACK
+          || c1 == 0x00
+          || c1 == KEYBOARD_BAT_SUCCESSFUL);
+
+    uint8_t c2 = ps2_read_output(ops);
+#ifdef KEYBOARD_KEY_DEBUG
+    printf("keyboard_detect_scanset() c1=%x c2=%x (0x80 + c1)=%x\n"
+            , c1, c2, 0x80 + c1);
+#endif
+    if (0x80 + c1 == c2) {
+        return 1;
+    }
+    if (c2 == KEYBOARD_PS2_EVENTCODE_RELEASE) {
+        uint8_t c3 = ps2_read_output(ops);
+        if (c1 == c3) {
+            return 2;
+        }
+    }
+    return -1;
 }

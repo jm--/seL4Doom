@@ -345,7 +345,8 @@ int16_t keycode_info_char_modifier(keycode_info_t *info, bool ctrl, bool shift);
 
 int16_t keycode_info_char(keycode_state_t *s, keycode_info_t *info);
 
-int16_t keycode_ps2_to_vkey(int32_t ps2_keycode);
+int16_t keycode_ps2_to_vkey_set1(uint32_t ps2_keycode);
+int16_t keycode_ps2_to_vkey_set2(int32_t ps2_keycode);
 
 
 keycode_info_t *keycode_process_vkey_event(keycode_state_t *s, int32_t vkey, bool pressed,

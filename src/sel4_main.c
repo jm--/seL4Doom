@@ -201,6 +201,8 @@ init_keyboard() {
         }
     } while (err);
 
+    keyboard_flush(&inputdev.ioops);
+
     // Loop through all IRQs and get the one device needs to listen to
     // We currently assume there it only needs one IRQ.
     int irq;
@@ -506,15 +508,13 @@ static void
     int argc = 1;
     char* argv[CMDLINE_LEN / 2] = {"./doom", NULL};
 
+    int scanset = keyboard_detect_scanset(&inputdev.ioops);
+    keyboard_set_scanset(scanset);
+    keyboard_flush(&inputdev.ioops);
+    seL4_IRQHandler_Ack(kb_handler.capPtr);
+
     /* boot into console if a key was pressed */
-    for (int i = 0; i < 10 ; i++) {
-        int c = sel4doom_get_getchar();
-        if (c != -1) {
-            seL4_IRQHandler_Ack(kb_handler.capPtr);
-            run_console(&argc, argv);
-            break;
-        }
-    }
+    //run_console(&argc, argv);
 
     /* we never return */
     main_ORIGINAL(argc, argv);

@@ -15,6 +15,9 @@
 #include "keyboard_ps2.h"
 #include "keyboard_vkey.h"
 
+void
+keyboard_set_scanset(int scanset);
+
 int
 keyboard_poll_keyevent(int16_t* vkey);
 

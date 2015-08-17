@@ -90,12 +90,103 @@ keycode_info_t keycodes[VK_MAX_ENUM] = {
     [VK_NUMPAD9] = {'9', '9', -1}
 };
 
+//source: http://wiki.osdev.org/PS2_Keyboard
+int16_t ps2_to_vkey_set1[PS2_MAX_KEYCODES_BASIC] = {
+    [0 ... (PS2_MAX_KEYCODES_BASIC - 1)] = -1,
+
+    [0x01] = VK_ESCAPE,
+    [0x02] = VK_1,
+    [0x03] = VK_2,
+    [0x04] = VK_3,
+    [0x05] = VK_4,
+    [0x06] = VK_5,
+    [0x07] = VK_6,
+    [0x08] = VK_7,
+    [0x09] = VK_8,
+    [0x0A] = VK_9,
+    [0x0B] = VK_0,
+    [0x0C] = VK_OEM_MINUS,
+    [0x0D] = VK_OEM_PLUS, //=
+    [0x0E] = VK_BACK,
+    [0x0F] = VK_TAB,
+    [0x10] = VK_Q,
+    [0x11] = VK_W,
+    [0x12] = VK_E,
+    [0x13] = VK_R,
+    [0x14] = VK_T,
+    [0x15] = VK_Y,
+    [0x16] = VK_U,
+    [0x17] = VK_I,
+    [0x18] = VK_O,
+    [0x19] = VK_P,
+    [0x1A] = VK_OEM_4,  //[
+    [0x1B] = VK_OEM_6,  //]
+    [0x1C] = VK_RETURN,
+    [0x1D] = VK_LCONTROL,
+    [0x1E] = VK_A,
+    [0x1F] = VK_S,
+    [0x20] = VK_D,
+    [0x21] = VK_F,
+    [0x22] = VK_G,
+    [0x23] = VK_H,
+    [0x24] = VK_J,
+    [0x25] = VK_K,
+    [0x26] = VK_L,
+    [0x27] = VK_OEM_1,  // ;
+    [0x28] = VK_OEM_7,  // ' (single quote)
+    [0x29] = VK_OEM_3,  // ` (back tick)
+    [0x2A] = VK_LSHIFT,
+    [0x2B] = VK_OEM_5,  // '\'
+    [0x2C] = VK_Z,
+    [0x2D] = VK_X,
+    [0x2E] = VK_C,
+    [0x2F] = VK_V,
+    [0x30] = VK_B,
+    [0x31] = VK_N,
+    [0x32] = VK_M,
+    [0x33] = VK_OEM_COMMA,
+    [0x34] = VK_OEM_PERIOD,
+    [0x35] = VK_OEM_2, // '/'
+    [0x36] = VK_RSHIFT,
+    [0x37] = VK_MULTIPLY, //(keypad) *
+    [0x38] = VK_MENU, // left alt
+    [0x39] = VK_SPACE,
+    [0x3A] = VK_CAPITAL,
+    [0x3B] = VK_F1,
+    [0x3C] = VK_F2,
+    [0x3D] = VK_F3,
+    [0x3E] = VK_F4,
+    [0x3F] = VK_F5,
+    [0x40] = VK_F6,
+    [0x41] = VK_F7,
+    [0x42] = VK_F8,
+    [0x43] = VK_F9,
+    [0x44] = VK_F10,
+    [0x45] = VK_NUMLOCK,
+    [0x46] = VK_SCROLL,
+    [0x47] = VK_NUMPAD7,  //(keypad) 7
+    [0x48] = VK_NUMPAD8,  //(keypad) 8
+    [0x49] = VK_NUMPAD9,  //(keypad) 9
+    [0x4A] = VK_SUBTRACT, //(keypad) -
+    [0x4B] = VK_NUMPAD4,  //(keypad) 4
+    [0x4C] = VK_NUMPAD5,  //(keypad) 5
+    [0x4D] = VK_NUMPAD6,  //(keypad) 6
+    [0x4E] = VK_ADD,      //(keypad) +
+    [0x4F] = VK_NUMPAD1,  //(keypad) 1
+    [0x50] = VK_NUMPAD2,  //(keypad) 2
+    [0x51] = VK_NUMPAD3,  //(keypad) 3
+    [0x52] = VK_NUMPAD0,  //(keypad) 0
+    [0x53] = VK_DECIMAL,  //(keypad) .
+    [0x57] = VK_F11,
+    [0x58] = VK_F12
+};
+
 /* ref: http://techdocs.altium.com/display/FPGA/PS2+Keyboard+Scan+Codes
    NOTE: This table does not contain the extended char codes, they are handled as special cases
          by the keycode_ps2_to_vkey() helper function. This is done to reduce the memory footprint
          of this lookup table from 65535 to 256 bytes.
 */
-int16_t ps2_to_vkey[PS2_MAX_KEYCODES_BASIC] = {
+int16_t ps2_to_vkey_set2[PS2_MAX_KEYCODES_BASIC] = {
     [0 ... (PS2_MAX_KEYCODES_BASIC - 1)] = -1,
 
     [PS2_KEY_ESC] = VK_ESCAPE,
@@ -184,7 +275,6 @@ int16_t ps2_to_vkey[PS2_MAX_KEYCODES_BASIC] = {
     [PS2_KEY_NUM_0] = VK_NUMPAD0,
     [PS2_KEY_NUM_DOT] = VK_DECIMAL
 };
-
 
 void
 keycode_init(keycode_state_t *s,
@@ -564,11 +654,41 @@ keycode_info_char(keycode_state_t *s, keycode_info_t *info)
                                       s->keystate[VK_SHIFT] ^ s->caps_lock);
 }
 
+//source: http://wiki.osdev.org/PS2_Keyboard
+int16_t keycode_ps2_to_vkey_set1(uint32_t ps2_keycode)
+{
+    printf("keycode_ps2_to_vkey_set1 %d\n", ps2_keycode);
+    if (ps2_keycode <= 0x58) {
+        return ps2_to_vkey_set1[ps2_keycode];
+    }
+    /* Special case extended characters to avoid a large lookup table. */
+    switch (ps2_keycode) {
+    case 0xE01C: return VK_RETURN;   //( keypad) enter
+    case 0xE01D: return VK_RCONTROL; // right control
+    case 0xE035: return VK_DIVIDE;   // (keypad) /
+    case 0xE038: return VK_RMENU;    // right alt (or altGr)
+    case 0xE047: return VK_HOME;     // home
+    case 0xE048: return VK_UP;       // cursor up
+    case 0xE049: return VK_PRIOR;    // page up
+    case 0xE04B: return VK_LEFT;     // cursor left
+    case 0xE04D: return VK_RIGHT;    // cursor right
+    case 0xE04F: return VK_END;      // end
+    case 0xE050: return VK_DOWN;     // cursor down
+    case 0xE051: return VK_NEXT;     // page dow
+    case 0xE052: return VK_INSERT;   // insert
+    case 0xE053: return VK_DELETE;   // delete
+    case 0xE05B: return VK_LWIN;     // left GUI
+    case 0xE05C: return VK_LWIN;     // right GUI
+    case 0xE05D: return VK_APPS;     // "apps"
+    }
+    return -1;
+}
+
 int16_t
-keycode_ps2_to_vkey(int32_t ps2_keycode)
+keycode_ps2_to_vkey_set2(int32_t ps2_keycode)
 {
     if (ps2_keycode >= 0 && ps2_keycode < PS2_MAX_KEYCODES_BASIC) {
-        return ps2_to_vkey[ps2_keycode];
+        return ps2_to_vkey_set2[ps2_keycode];
     }
     /* Special case extended characters to avoid a large lookup table. */
     switch (ps2_keycode) {
