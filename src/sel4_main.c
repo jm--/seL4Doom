@@ -138,7 +138,7 @@ setup_system()
 
 
 static void
-init_timers()
+init_timer()
 {
     // get an endpoint for the timer IRQ (interrupt handler)
     UNUSED int err = vka_alloc_async_endpoint(&vka, &timer_aep);
@@ -147,11 +147,6 @@ init_timers()
     // get the timer
     timer = sel4platsupport_get_default_timer(&vka, &vspace, &simple, timer_aep.cptr);
     assert(timer != NULL);
-
-    // get a TSC timer (forward marching time); use
-    // timer_get_time(tsc_timer) to get current time (in ns)
-    tsc_timer = sel4platsupport_get_tsc_timer(timer);
-    assert(tsc_timer != NULL);
 }
 
 
@@ -172,6 +167,20 @@ get_irqhandler_cap(int irq, cspacepath_t* handler)
     // to get an IRQHandler cap for IRQ "irq"
     err = simple_get_IRQ_control(&simple, irq, *handler);
     assert(err == 0);
+}
+
+
+/*
+ * Wait for (n * 10) ms.
+ */
+static void
+isleep(int n) {
+    for (int i = 0; i < n; i++) {
+        UNUSED int err = timer_oneshot_relative(timer->timer, 10 * NS_IN_MS);
+        assert(err == 0);
+        seL4_Wait(timer_aep.cptr, NULL);
+        sel4_timer_handle_single_irq(timer);
+    }
 }
 
 
@@ -201,19 +210,8 @@ init_keyboard() {
         }
     } while (err);
 
-    keyboard_flush(&inputdev.ioops);
-
-    // Loop through all IRQs and get the one device needs to listen to
-    // We currently assume there it only needs one IRQ.
-    int irq;
-    for (irq = 0; irq < 256; irq++) {
-        if (ps_cdev_produces_irq(&inputdev, irq)) {
-            break;
-        }
-    }
-
     //create IRQHandler cap
-    get_irqhandler_cap(irq, &kb_handler);
+    get_irqhandler_cap(KEYBOARD_PS2_IRQ, &kb_handler);
 
     // create endpoint
     err = vka_alloc_async_endpoint(&vka, &kb_ep);
@@ -221,6 +219,15 @@ init_keyboard() {
 
     /* Assign AEP to the IRQ handler. */
     err = seL4_IRQHandler_SetEndpoint(kb_handler.capPtr, kb_ep.cptr);
+    assert(err == 0);
+
+    /* Give keyboard time to settle down. Wait for finals ACKs generated
+     * in keyboard_init() to show up. I need this for my (real) laptop.
+     */
+    isleep(100);
+    /* Remove ACKs (or whatever) from keyboard buffer */
+    keyboard_flush(&inputdev.ioops);
+    err = seL4_IRQHandler_Ack(kb_handler.capPtr);
     assert(err == 0);
 }
 
@@ -412,11 +419,13 @@ static void
 readline(char* buf, int buf_len) {
     int c; // current key char
     int pos = 0; // index in "buf" where c will be placed
+    int err;
 
     for (;;) {
         fflush(stdout);
         seL4_Wait(kb_ep.cptr, NULL);
-        seL4_IRQHandler_Ack(kb_handler.capPtr);
+        err = seL4_IRQHandler_Ack(kb_handler.capPtr);
+        assert(err == 0);
         for (;;) {
             c = sel4doom_get_getchar();
             if (c == -1) {
@@ -447,7 +456,7 @@ readline(char* buf, int buf_len) {
 
 /*
  * A command line console. It works nicely for me when running QEMU with
- *  "-serial stdio", but there is probably little real world use use for it.
+ *  "-serial stdio", but there is probably little real world use for it.
  *  It's main purpose is to provide a quick way to launch custom WAD files:
  *  e.g. with "doom -file myfile.wad". Also, every operating system needs
  *  a console. :)
@@ -475,9 +484,12 @@ run_console(int* argc, char* argv[]) {
 }
 
 
-static void
+UNUSED static void
 *main_continued()
 {
+    printf("initializing timer\n");
+    init_timer();
+
     printf("initializing keyboard\n");
     init_keyboard();
 
@@ -498,7 +510,10 @@ static void
 
     printf("initializing timers (you may see some errors or warnings)\n");
     fflush(stdout);
-    init_timers();
+    // get a TSC timer (forward marching time); use
+    // timer_get_time(tsc_timer) to get current time (in ns)
+    tsc_timer = sel4platsupport_get_tsc_timer(timer);
+    assert(tsc_timer != NULL);
     printf("done initializing timers\n");
 
     /* print content of cpio file */
@@ -508,13 +523,11 @@ static void
     int argc = 1;
     char* argv[CMDLINE_LEN / 2] = {"./doom", NULL};
 
-    int scanset = keyboard_detect_scanset(&inputdev.ioops);
-    keyboard_set_scanset(scanset);
-    keyboard_flush(&inputdev.ioops);
-    seL4_IRQHandler_Ack(kb_handler.capPtr);
-
-    /* boot into console if a key was pressed */
-    //run_console(&argc, argv);
+    /* boot into console if 'c' was pressed */
+    int c = sel4doom_get_getchar();
+    if (c == 'c' || c == 'C') {
+        run_console(&argc, argv);
+    }
 
     /* we never return */
     main_ORIGINAL(argc, argv);

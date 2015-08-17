@@ -253,14 +253,32 @@ keyboard_reset(struct keyboard_state *state)
     return 0;
 }
 
+
+static int
+keyboard_getvkey_scanset(ps_io_ops_t* ops, keyboard_key_event_t* ev);
+
 keyboard_key_event_t
 keyboard_poll_ps2_keyevent(struct keyboard_state *state)
 {
+    static int firsttime = 1;
+
     if ((ps2_read_control_status(&state->ops) & 0x1) == 0) {
         /* No key events generated. */
         keyboard_key_event_t ev = { .vkey = -1, .pressed = false };
         return ev;
     }
+
+    if (firsttime) {
+        keyboard_key_event_t ev;
+        int scanset = keyboard_getvkey_scanset(&state->ops, &ev);
+        if (scanset > 0) {
+            /* a scan code was identified */
+            state->scanset = scanset;
+            firsttime = 0;
+        }
+        return ev;
+    }
+
     return keyboard_state_push_ps2_keyevent(state, ps2_read_data(&state->ops));
 }
 
@@ -326,5 +344,45 @@ keyboard_detect_scanset(ps_io_ops_t *ops)
             return 2;
         }
     }
+    return -1;
+}
+
+static int
+keyboard_getvkey_scanset(ps_io_ops_t* ops, keyboard_key_event_t* ev)
+{
+    int16_t vkey;
+    uint8_t c1;
+    /* skip over some "special bytes" */
+    do {
+        c1 = ps2_read_output(ops);
+#ifdef KEYBOARD_KEY_DEBUG
+        printf("keyboard_getvkey_scanset() flush: %x\n", c1);
+#endif
+    } while (c1 >= KEYBOARD_ACK
+          || c1 == 0x00
+          || c1 == KEYBOARD_BAT_SUCCESSFUL);
+
+    uint8_t c2 = ps2_read_output(ops);
+#ifdef KEYBOARD_KEY_DEBUG
+    printf("keyboard_getvkey_scanset() c1=%x c2=%x (0x80 + c1)=%x\n"
+            , c1, c2, 0x80 + c1);
+#endif
+    if (0x80 + c1 == c2) {
+        vkey = keycode_ps2_to_vkey_set1(c1);
+        ev->vkey = vkey;
+        ev->pressed = true;
+        return 1;
+    }
+    if (c2 == KEYBOARD_PS2_EVENTCODE_RELEASE) {
+        uint8_t c3 = ps2_read_output(ops);
+        if (c1 == c3) {
+            vkey = keycode_ps2_to_vkey_set2(c1);
+            ev->vkey = vkey;
+            ev->pressed = true;
+            return 2;
+        }
+    }
+    ev->vkey = -1;
+    ev->pressed = false;
     return -1;
 }
