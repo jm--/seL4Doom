@@ -1,6 +1,6 @@
 # seL4Doom
 
-DOOM rocks, so does seL4! This project is an attempt to make the PC game DOOM
+DOOM rocks, so does seL4! The goal of this project is to make the PC game DOOM
 run on the seL4 microkernel.
 
 # License
@@ -10,7 +10,7 @@ copyright and licensing information.
 
 # Build Instructions
 
-## Canonical Build Instructions
+## A) Canonical Build Instructions
 
 1) Install `repo` and all prerequisites as described here http://sel4.systems/Download/
 
@@ -48,8 +48,7 @@ Using the menu:
 make
 ```
 If all goes well, then this creates a bootable ISO cd-rom image in the
-./images folder. Be prepared to see some compiler warnings, for the Doom source
-code is not as pristine as the source code of seL4.
+./images folder. (The Doom source code generates compiler warnings.)
 ```
 make run
 ```
@@ -64,7 +63,7 @@ or discover something that does not work. Thanks!
 
 
 ## B) General Build Information
-If you want to integrate sel4Doom in your existing build infrastructure, then
+If you want to integrate sel4Doom into your existing build infrastructure, then
 here is some information you may find helpful:
 * You need the experimental (not the master) branch of the kernel
 * You may have to increase "Malloc limit," which is config symbol
@@ -74,11 +73,11 @@ here is some information you may find helpful:
 * You need a boot loader that can boot the kernel in graphics mode
 
 
-# Instructions
-* sel4Doom includes an easter egg in form of two new cheat codes: "sel4"
-  and "psu". (Cheat codes are activated by typing in certain key sequences
+# Features
+* sel4Doom includes an **easter egg** in the form of two new cheat codes: `sel4`
+  and `psu`. (Cheat codes are activated by typing in certain key sequences
   during game play.)
-* You can boot into a command line "console" when you press a key while the
+* You can boot into a command line **console** when you press `c` while the
   green/blue splash screen is displayed. The output of the console is written
   to libplatsupport's "X86 console device" (default is COM1). While the
   output is written to the serial port, the input is currently only from the
@@ -89,9 +88,13 @@ here is some information you may find helpful:
   Type `doom` to boot into sel4Doom; type `doom -warp 1 3 -skill4` to start the
   game in episode 1, level 3, and difficulty level 4 (ultra-violence); type
   `doom -file myfile.wad` to load the WAD file myfile.wad, etc.
+* Works with recalcitrant PS/2 **keyboards** (buggy "Legacy USB support" BIOS?)
+  that refuse to operate in scan code set 2. Depending on the scan code of the
+  first key pressed, seL4Doom uses either scan code set 2 (like libplatsupport)
+  or scan code set 1.
 
 
 # TODOs
 I've added some project ideas to the issue tracker system:
 https://github.com/jm--/seL4Doom/issues
-You are hereby invited to help improve sel4Doom! It's a lot of fun!
+You are hereby invited to help bring DOOM to seL4! It's a lot of fun!
