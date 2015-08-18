@@ -402,3 +402,22 @@ keyboard_getvkey_scanset(ps_io_ops_t* ops, keyboard_key_event_t* ev)
     ev->pressed = false;
     return -1;
 }
+
+/* Set autorepeat delay and repeat rate of keyboard.
+ * @param delay: repeat delay
+ *       0 = 250ms     2 = 750ms
+ *       1 = 500ms     3 = 1000ms
+ * @param rate: typematic rate, values are between 0 (fast) and 0x1f (slow)
+ *       0 = 30 chars per sec
+ *       0x1f = 2 chars per sec
+ *
+ * This works only for my laptop's built in keyboard but not my external
+ * USB keyboard ("legacy mode" BIOS issue?).
+ */
+void
+keyboard_set_repeatrate(ps_io_ops_t* ops, uint8_t delay, uint8_t rate)
+{
+    assert(0 <= delay && delay <= 3);
+    assert(0 <= rate && rate <= 0x1f);
+    ps2_send_keyboard_cmd_param(ops, 0xF3, (delay << 5) | rate);
+}

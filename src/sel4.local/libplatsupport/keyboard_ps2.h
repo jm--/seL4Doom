@@ -74,6 +74,8 @@ struct keyboard_state {
 
 void keyboard_flush(ps_io_ops_t *ops);
 
+void keyboard_set_repeatrate(ps_io_ops_t* ops, uint8_t delay, uint8_t rate);
+
 /* Initialise keyboard driver state.
    The handle_event_callback parameter is optional, and may be set to NULL. Events are be
    returned by keyboard_poll_ps2_keyevents().
