@@ -15,13 +15,19 @@
 #include <sel4/sel4.h>
 #include <assert.h>
 
+/*
+ * Poor man's version of a busy wait loop. Variables are static and volatile
+ * to make compiler optimization less likely.
+ */
 static double
 ps2_delay(int n) {
-    printf("ps2_delay %d\n", n);
-    double d = 200.0 + n;
-    for (int i = 0; i < n; i++) {
-        d = d + 10 * d/3.2;
+    static int dd = 0;
+    volatile int i;
+    volatile double d = 200.0 + n % 13 + dd % 13;
+    for (i = 0; i < n; i++) {
+        d = d + 10.0 * d/3.2;
     }
+    dd = (int) d;
     return d;
 }
 
@@ -69,8 +75,9 @@ static void
 ps_write_commandbyte(ps_io_ops_t *ops, uint8_t config) {
     int i = 0;
     uint8_t config2;
-
-    printf("bCR=%x/%d ", config, i);
+#ifdef SEL4DOOM_DEBUG
+    printf("CR=0x%x ", config);
+#endif
     do {
         /* Write command byte: next byte written to port 60h is
            placed in command register. */
@@ -81,11 +88,11 @@ ps_write_commandbyte(ps_io_ops_t *ops, uint8_t config) {
         ps2_delay(1 << i);
         ps2_single_control(ops, PS2_READ_CMD_BYTE);
         config2 = ps2_read_output(ops);
-        printf("aCR=%x/%d ", config2, i);
+#ifdef SEL4DOOM_DEBUG
+        printf("CR=0x%x/%d ", config2, i);
         fflush(stdout);
+#endif
     } while (config2 != config && i++ < 24);
-    printf("ps_write_commandbyte() - done\n");
-    fflush(stdout);
 }
 
 static void
@@ -300,6 +307,9 @@ keyboard_poll_ps2_keyevent(struct keyboard_state *state)
     if (firsttime) {
         keyboard_key_event_t ev;
         int scanset = keyboard_getvkey_scanset(&state->ops, &ev);
+#ifdef SEL4DOOM_DEBUG
+        printf("keyboard_getvkey_scanset()=%d", scanset);
+#endif
         if (scanset > 0) {
             /* a scan code was identified */
             state->scanset = scanset;
@@ -332,50 +342,27 @@ void
 keyboard_flush(ps_io_ops_t *ops)
 {
      for (;;) {
-#ifdef KEYBOARD_KEY_DEBUG
-        printf("keyboard_flush() control=%x, \n", ps2_read_control_status(ops));
+#ifdef SEL4DOOM_DEBUG
+        printf("keyboard_flush() control=0x%x, \n", ps2_read_control_status(ops));
 #endif
         if (0 == (ps2_read_control_status(ops) & 0x1)) {
             break;
         }
         UNUSED uint8_t c = ps2_read_data(ops);
-#ifdef KEYBOARD_KEY_DEBUG
-        printf("keyboard_flush %x\n", c);
+#ifdef SEL4DOOM_DEBUG
+        printf("keyboard_flush 0x%x\n", c);
 #endif
     }
 }
 
-int
-keyboard_detect_scanset(ps_io_ops_t *ops)
-{
-    uint8_t c1;
-    /* skip over some "special bytes" */
-    do {
-        c1 = ps2_read_output(ops);
-#ifdef KEYBOARD_KEY_DEBUG
-        printf("keyboard_detect_scanset() flush: %x\n", c1);
-#endif
-    } while (c1 >= KEYBOARD_ACK
-          || c1 == 0x00
-          || c1 == KEYBOARD_BAT_SUCCESSFUL);
-
-    uint8_t c2 = ps2_read_output(ops);
-#ifdef KEYBOARD_KEY_DEBUG
-    printf("keyboard_detect_scanset() c1=%x c2=%x (0x80 + c1)=%x\n"
-            , c1, c2, 0x80 + c1);
-#endif
-    if (0x80 + c1 == c2) {
-        return 1;
-    }
-    if (c2 == KEYBOARD_PS2_EVENTCODE_RELEASE) {
-        uint8_t c3 = ps2_read_output(ops);
-        if (c1 == c3) {
-            return 2;
-        }
-    }
-    return -1;
-}
-
+/*
+ * We assume we have a press and a release event. We read both but only
+ * generate a vkey for the press event. This code does not work if pressed
+ * key is an extended key (starts with 0xE0, e.g. cursor), but this can be
+ * added.
+ * @param[out] ev: vkey of pressed key
+ * @return: detected scancode set 1 or 2, or -1 if detection failed
+ */
 static int
 keyboard_getvkey_scanset(ps_io_ops_t* ops, keyboard_key_event_t* ev)
 {
@@ -384,15 +371,15 @@ keyboard_getvkey_scanset(ps_io_ops_t* ops, keyboard_key_event_t* ev)
     /* skip over some "special bytes" */
     do {
         c1 = ps2_read_output(ops);
-#ifdef KEYBOARD_KEY_DEBUG
-        printf("keyboard_getvkey_scanset() flush: %x\n", c1);
+#ifdef SEL4DOOM_DEBUG
+        printf("keyboard_getvkey_scanset() flush: 0x%x\n", c1);
 #endif
     } while (c1 >= KEYBOARD_ACK
           || c1 == 0x00
           || c1 == KEYBOARD_BAT_SUCCESSFUL);
 
     uint8_t c2 = ps2_read_output(ops);
-#ifdef KEYBOARD_KEY_DEBUG
+#ifdef SEL4DOOM_DEBUG
     printf("keyboard_getvkey_scanset() c1=%x c2=%x (0x80 + c1)=%x\n"
             , c1, c2, 0x80 + c1);
 #endif

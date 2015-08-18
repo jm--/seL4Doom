@@ -73,7 +73,6 @@ struct keyboard_state {
 
 
 void keyboard_flush(ps_io_ops_t *ops);
-int keyboard_detect_scanset(ps_io_ops_t *ops);
 
 /* Initialise keyboard driver state.
    The handle_event_callback parameter is optional, and may be set to NULL. Events are be

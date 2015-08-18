@@ -290,7 +290,6 @@ keycode_init(keycode_state_t *s,
     s->handle_led_state_changed_callback = handle_led_state_changed_callback;
 }
 
-#ifdef KEYBOARD_KEY_DEBUG
 const char*
 keycode_vkey_desc(uint16_t vk)
 {
@@ -636,7 +635,6 @@ keycode_vkey_desc(uint16_t vk)
     }
     return "VK_UNKNOWN";
 }
-#endif /* KEYBOARD_KEY_DEBUG */
 
 int16_t
 keycode_info_char_modifier(keycode_info_t *info, bool ctrl, bool shift)
@@ -655,9 +653,9 @@ keycode_info_char(keycode_state_t *s, keycode_info_t *info)
 }
 
 //source: http://wiki.osdev.org/PS2_Keyboard
-int16_t keycode_ps2_to_vkey_set1(uint32_t ps2_keycode)
+int16_t
+keycode_ps2_to_vkey_set1(uint32_t ps2_keycode)
 {
-    printf("keycode_ps2_to_vkey_set1 %d\n", ps2_keycode);
     if (ps2_keycode <= 0x58) {
         return ps2_to_vkey_set1[ps2_keycode];
     }

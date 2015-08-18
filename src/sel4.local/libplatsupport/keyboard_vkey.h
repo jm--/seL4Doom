@@ -337,9 +337,7 @@ void keycode_init(
     void (*handle_led_state_changed_callback)(void *cookie)
 );
 
-#ifdef KEYBOARD_KEY_DEBUG
 const char* keycode_vkey_desc(uint16_t vk);
-#endif
 
 int16_t keycode_info_char_modifier(keycode_info_t *info, bool ctrl, bool shift);
 

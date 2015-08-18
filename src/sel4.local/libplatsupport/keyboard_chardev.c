@@ -18,17 +18,11 @@ static struct keyboard_state kb_state;
 static keycode_state_t kc_state;
 
 
-void
-keyboard_set_scanset(int scanset)
-{
-    kb_state.scanset = scanset;
-}
-
 int
 keyboard_poll_keyevent(int16_t* vkey)
 {
     keyboard_key_event_t ev = keyboard_poll_ps2_keyevent(&kb_state);
-#ifdef KEYBOARD_KEY_DEBUG
+#ifdef SEL4DOOM_DEBUG
     if (ev.vkey != -1) {
         printf("key %s: %s vkey=%d=0x%x\n"
                 , ev.pressed ? "DOWN":"UP  ", keycode_vkey_desc(ev.vkey)
