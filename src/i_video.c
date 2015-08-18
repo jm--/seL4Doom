@@ -35,7 +35,7 @@
 
 #include "doomdef.h"
 #include "sel4_doom.h"
-
+#include "sel4.local/libplatsupport/keyboard_vkey.h"
 
 /* the current color palette in 32bit format as used by frame buffer */
 static uint32_t sel4doom_colors32[256];
@@ -199,91 +199,120 @@ sel4doom_poll_event(event_t* event) {
     event->type = pressed ? ev_keydown : ev_keyup;
 
     switch(vkey) {
-    case 0x25:
+    case VK_LEFT:
         event->data1 = KEY_LEFTARROW;
         return 1;
-    case 0x26:
+    case VK_UP:
         event->data1 = KEY_UPARROW;
         return 1;
-    case 0x27:
+    case VK_RIGHT:
         event->data1 = KEY_RIGHTARROW;
         return 1;
-    case 0x28:
+    case VK_DOWN:
         event->data1 = KEY_DOWNARROW;
         return 1;
-    case 0x18: //right alt
-        event->data1 = KEY_RALT;
-        return 1;
-    case 0x2c: // print screen key
+    case VK_SNAPSHOT: // print screen key
         // Hack: We filter out this event (by returning 0).
         // At least in VirtualBox, every cursor key event is accompanied
         // by this key event.
         return 0;
-    case 8:
+    case VK_BACK:
         event->data1 = KEY_BACKSPACE;
         return 1;
-    case 160: //left shift
+    case VK_LSHIFT: //left shift
         event->data1 = KEY_RSHIFT;
         return 1;
-    case 161: //right shift
+    case VK_RSHIFT: //right shift
         event->data1 = KEY_RSHIFT;
         return 1;
-    case 162: //left control
+    case VK_LCONTROL: //left control
         event->data1 = KEY_RCTRL;
         return 1;
-    case 18: // left alt
+    case VK_RCONTROL:
+        event->data1 = KEY_RCTRL;
+        return 1;
+    case VK_MENU: // left and right alt
         event->data1 = KEY_RALT;
         return 1;
-    case 188: // ',' key
+    case VK_LMENU:
+        event->data1 = KEY_RALT;
+        return 1;
+    case VK_RMENU:
+        event->data1 = KEY_RALT;
+        return 1;
+    case VK_OEM_COMMA: // ',' key
         event->data1 = 44; // ascii code of ',' (default key for strafe left)
         return 1;
-    case 190: // '.' key
+    case VK_OEM_PERIOD: // '.' key
         event->data1 = 46; // ascii code of '.' (default key for strafe right)
         return 1;
-    case 112:
+    case VK_F1:
         event->data1 = KEY_F1;
         return 1;
-    case 113:
+    case VK_F2:
         event->data1 = KEY_F2;
         return 1;
-    case 114:
+    case VK_F3:
         event->data1 = KEY_F3;
         return 1;
-    case 115:
+    case VK_F4:
         event->data1 = KEY_F4;
         return 1;
-    case 116:
+    case VK_F5:
         event->data1 = KEY_F5;
         return 1;
-    case 117:
+    case VK_F6:
         event->data1 = KEY_F6;
         return 1;
-    case 118:
+    case VK_F7:
         event->data1 = KEY_F7;
         return 1;
-    case 119:
+    case VK_F8:
         event->data1 = KEY_F8;
         return 1;
-    case 120:
+    case VK_F9:
         event->data1 = KEY_F9;
         return 1;
-    case 121:
+    case VK_F10:
         event->data1 = KEY_F10;
         return 1;
-    case 122:
+    case VK_F11:
         event->data1 = KEY_F11;
         return 1;
-    case 123:
+    case VK_F12:
         event->data1 = KEY_F12;
         return 1;
-    case 187:
+    case VK_OEM_PLUS:
         event->data1 = KEY_EQUALS;
         return 1;
-    case 189:
+    case VK_OEM_MINUS:
         event->data1 = KEY_MINUS;
         return 1;
-    case 19:
+    case VK_PAUSE:
         event->data1 = KEY_PAUSE;
+        return 1;
+    case VK_NUMPAD4:
+        event->data1 = KEY_LEFTARROW;
+        return 1;
+    case VK_NUMPAD8:
+        event->data1 = KEY_UPARROW;
+        return 1;
+    case VK_NUMPAD6:
+        event->data1 = KEY_RIGHTARROW;
+        return 1;
+    case VK_NUMPAD5:
+        event->data1 = KEY_DOWNARROW;
+        return 1;
+    case VK_NUMPAD2:
+        event->data1 = KEY_DOWNARROW;
+        return 1;
+
+    /* Some extra mappings. */
+    case VK_X:
+        event->data1 = KEY_RALT;
+        return 1;
+    case VK_Z:
+        event->data1 = KEY_RCTRL;
         return 1;
     }
 
